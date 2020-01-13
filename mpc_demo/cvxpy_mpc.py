@@ -19,16 +19,16 @@ def get_linear_model(x_bar,u_bar):
     theta = x_bar[2]
     psi = x_bar[3]
     cte = x_bar[4]
-    
+
     v = u_bar[0]
     w = u_bar[1]
-    
+
     A = np.zeros((N,N))
     A[0,2]=-v*np.sin(theta)
     A[1,2]=v*np.cos(theta)
     A[4,3]=v*np.cos(-psi)
     A_lin=np.eye(N)+dt*A
-    
+
     B = np.zeros((N,M))
     B[0,0]=np.cos(theta)
     B[1,0]=np.sin(theta)
@@ -36,10 +36,10 @@ def get_linear_model(x_bar,u_bar):
     B[3,1]=-1
     B[4,0]=np.sin(-psi)
     B_lin=dt*B
-    
+
     f_xu=np.array([v*np.cos(theta),v*np.sin(theta),w,-w,v*np.sin(-psi)]).reshape(N,1)
     C_lin = dt*(f_xu - np.dot(A,x_bar.reshape(N,1)) - np.dot(B,u_bar.reshape(M,1)))
-    
+
     return A_lin,B_lin,C_lin
 
 def calc_err(state,path):
@@ -58,7 +58,7 @@ def calc_err(state,path):
 
     try:
         v = [path[0,nn_idx+1] - path[0,nn_idx],
-             path[1,nn_idx+1] - path[1,nn_idx]]   
+             path[1,nn_idx+1] - path[1,nn_idx]]
         v /= np.linalg.norm(v)
 
         d = [path[0,nn_idx] - state[0],
@@ -74,17 +74,17 @@ def calc_err(state,path):
 
     path_ref_vect = [np.cos(path[2,target_idx] + np.pi / 2),
                      np.sin(path[2,target_idx] + np.pi / 2)]
-    
+
     #heading error w.r.t path frame
     psi = path[2,target_idx] - state[2]
-        
+
     # the cross-track error is given by the scalar projection of the car->wp vector onto the faxle versor
     #cte = np.dot([dx[target_idx], dy[target_idx]],front_axle_vect)
     cte = np.dot([dx[target_idx], dy[target_idx]],path_ref_vect)
 
     return target_idx,psi,cte
 
-def optimize(starting_state,u_bar,track);
+def optimize(starting_state,u_bar,track):
     '''
     :param starting_state:
     :param u_bar:
@@ -100,7 +100,7 @@ def optimize(starting_state,u_bar,track);
     M = 2 #number of control variables
     T = 20 #Prediction Horizon
     dt = 0.25 #discretization step
-    
+
     #Starting Condition
     x0 = np.zeros(N)
     x0[0] = starting_state[0]
@@ -141,7 +141,7 @@ def optimize(starting_state,u_bar,track);
             idx,_,_ = calc_err(x_bar[:,t],track)
             delta_x = track[:,idx]-x[0:3,t]
             cost+= cp.quad_form(delta_x,10*np.eye(3))
-            
+
         # Tracking last time step
         if t == T:
             idx,_,_ = calc_err(x_bar[:,t],track)
@@ -151,26 +151,26 @@ def optimize(starting_state,u_bar,track);
         # Actuation rate of change
         if t < (T - 1):
             cost += cp.quad_form(u[:, t + 1] - u[:, t], 25*np.eye(M))
-        
+
         # Actuation effort
         cost += cp.quad_form( u[:, t],1*np.eye(M))
-        
+
         # Constrains
         A,B,C=get_linear_model(x_bar[:,t],u_bar[:,t])
         constr += [x[:,t+1] == A*x[:,t] + B*u[:,t] + C.flatten()]
 
     # sums problem objectives and concatenates constraints.
-    constr += [x[:,0] == x_sim[:,sim_time]] # starting condition
+    constr += [x[:,0] == x0] # starting condition
     constr += [u[0, :] <= MAX_SPEED]
     constr += [u[0, :] >= MIN_SPEED]
     constr += [cp.abs(u[1, :]) <= MAX_STEER_SPEED]
-    
+
     # Solve
     prob = cp.Problem(cp.Minimize(cost), constr)
     solution = prob.solve(solver=cp.ECOS, verbose=False)
-    
+
     #retrieved optimized U and assign to u_bar to linearize in next step
     u_bar=np.vstack((np.array(u.value[0, :]).flatten(),
                     (np.array(u.value[1, :]).flatten())))
-    
+
     return u_bar
