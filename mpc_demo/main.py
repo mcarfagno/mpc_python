@@ -34,7 +34,7 @@ class MPC():
         self.opt_u[1,:] = np.radians(0) #rad/s
 
         # Interpolated Path to follow given waypoints
-        self.path = compute_path_from_wp([0,20,30,30],[0,0,10,20])
+        self.path = compute_path_from_wp([0,10,12,2,4,14],[0,0,2,10,12,12])
 
         # Sim help vars
         self.sim_time=0
@@ -57,13 +57,17 @@ class MPC():
         while 1:
             if self.state is not None:
 
+                if np.sqrt((self.state[0]-self.path[0,-1])**2+(self.state[1]-self.path[1,-1])**2)<1:
+                    print("Success! Goal Reached")
+                    return
+
                 #optimization loop
                 start=time.time()
                 self.opt_u = optimize(self.state,
                                         self.opt_u,
                                         self.path)
 
-                print("CVXPY Optimization Time: {:.4f}s".format(time.time()-start))
+                # print("CVXPY Optimization Time: {:.4f}s".format(time.time()-start))
 
                 self.update_sim(self.opt_u[0,1],self.opt_u[1,1])
 
@@ -97,30 +101,77 @@ class MPC():
         plt.subplot(grid[0:2, 0:2])
         plt.title("MPC Simulation \n" + "Simulation elapsed time {}s".format(self.sim_time))
 
-        plt.plot(self.path[0,:],self.path[1,:], c='tab:orange', marker=".", label="reference track")
-        plt.plot(self.x_history, self.y_history, c='tab:blue', marker=".", alpha=0.5, label="vehicle trajectory")
-        plt.plot(self.x_history[-1], self.y_history[-1], c='tab:blue', marker=".", markersize=12, label="vehicle position")
-        plt.arrow(self.x_history[-1], self.y_history[-1],np.cos(self.h_history[-1]),np.sin(self.h_history[-1]),color='tab:blue',width=0.2,head_length=0.5)
+        plt.plot(self.path[0,:],self.path[1,:], c='tab:orange',
+                                                marker=".",
+                                                label="reference track")
+
+        plt.plot(self.x_history, self.y_history, c='tab:blue',
+                                                 marker=".",
+                                                 alpha=0.5,
+                                                 label="vehicle trajectory")
+
+        # plt.plot(self.x_history[-1], self.y_history[-1], c='tab:blue',
+        #                                                  marker=".",
+        #                                                  markersize=12,
+        #                                                  label="vehicle position")
+        # plt.arrow(self.x_history[-1],
+        #           self.y_history[-1],
+        #           np.cos(self.h_history[-1]),
+        #           np.sin(self.h_history[-1]),
+        #           color='tab:blue',
+        #           width=0.2,
+        #           head_length=0.5,
+        #           label="heading")
+
+        plot_car(self.x_history[-1], self.y_history[-1], self.h_history[-1])
+
         plt.ylabel('map y')
+        plt.yticks(np.arange(min(self.path[1,:])-1., max(self.path[1,:]+1.)+1, 1.0))
         plt.xlabel('map x')
-        plt.legend()
+        plt.xticks(np.arange(min(self.path[0,:])-1., max(self.path[0,:]+1.)+1, 1.0))
+        #plt.legend()
 
         plt.subplot(grid[0, 2])
         #plt.title("Linear Velocity {} m/s".format(self.v_history[-1]))
         plt.plot(self.v_history,c='tab:orange')
+        locs, _ = plt.xticks()
+        plt.xticks(locs[1:], locs[1:]*self.dt)
         plt.ylabel('v(t) [m/s]')
-        plt.xlabel('sample')
+        plt.xlabel('t [s]')
 
         plt.subplot(grid[1, 2])
         #plt.title("Angular Velocity {} m/s".format(self.w_history[-1]))
         plt.plot(np.degrees(self.w_history),c='tab:orange')
         plt.ylabel('w(t) [deg/s]')
-        plt.xlabel('sample')
+        locs, _ = plt.xticks()
+        plt.xticks(locs[1:], locs[1:]*self.dt)
+        plt.xlabel('t [s]')
 
         plt.tight_layout()
 
         plt.draw()
         plt.pause(0.1)
+
+
+def plot_car(x, y, yaw):
+    LENGTH = 1.0  # [m]
+    WIDTH = 0.5  # [m]
+    OFFSET = LENGTH/2  # [m]
+
+    outline = np.array([[-OFFSET, (LENGTH - OFFSET), (LENGTH - OFFSET), -OFFSET, -OFFSET],
+                        [WIDTH / 2, WIDTH / 2, - WIDTH / 2, -WIDTH / 2, WIDTH / 2]])
+
+    Rotm = np.array([[np.cos(yaw), np.sin(yaw)],
+                     [-np.sin(yaw), np.cos(yaw)]])
+
+    outline = (outline.T.dot(Rotm)).T
+
+    outline[0, :] += x
+    outline[1, :] += y
+
+    plt.plot(np.array(outline[0, :]).flatten(), np.array(outline[1, :]).flatten(), 'tab:blue')
+
+
 
 def do_sim():
     sim=MPC()

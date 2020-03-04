@@ -1,4 +1,6 @@
 import numpy as np
+np.seterr(divide='ignore', invalid='ignore')
+
 from scipy.integrate import odeint
 from scipy.interpolate import interp1d
 import cvxpy as cp

@@ -18,7 +18,7 @@ def compute_path_from_wp(start_xp, start_yp, step = 0.1):
     for idx in range(len(start_xp)-1):
         section_len = np.sum(np.sqrt(np.power(np.diff(start_xp[idx:idx+2]),2)+np.power(np.diff(start_yp[idx:idx+2]),2)))
 
-        interp_range = np.linspace(0,1,section_len/delta)
+        interp_range = np.linspace(0,1,int(section_len/delta))
 
         fx=interp1d(np.linspace(0,1,2),start_xp[idx:idx+2],kind=1)
         fy=interp1d(np.linspace(0,1,2),start_yp[idx:idx+2],kind=1)
