@@ -6,7 +6,7 @@ Python implementation of mpc controller for path tracking.
 
 The MPC is a model predictive path following controller which does follow a predefined reference path Xref and Yref by solving an optimization problem. The resulting optimization problem is shown in the following equation:
 
-min $ J(x(t),U) = \sum^{t+T-1}_{j=t} (x_{j,ref} - x_{j})^T_{j}Q(x_{j,ref} - x_{j}) + u^T_{j}Ru_{j} $
+MIN $ J(x(t),U) = \sum^{t+T-1}_{j=t} (x_{j,ref} - x_{j})^T_{j}Q(x_{j,ref} - x_{j}) + u^T_{j}Ru_{j} $
 
 s.t.
 
