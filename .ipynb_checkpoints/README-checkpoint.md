@@ -6,22 +6,22 @@ Python implementation of mpc controller for path tracking.
 
 The MPC is a model predictive path following controller which does follow a predefined reference path Xref and Yref by solving an optimization problem. The resulting optimization problem is shown in the following equation:
 
-![](img/quicklatex1.gif)
+![](img/quicklatex1.png)
 
 The vehicle dynamics are described by the differential drive model:
 
-![](img/quicklatex2.gif)
+![](img/quicklatex2.png)
 
 The state variables of the model are:
 
-* $x$ coordinate of the robot
-* $y$ coordinate of the robot
-* $\theta$ heading of the robot
+* **x** coordinate of the robot
+* **y** coordinate of the robot
+* **theta** heading of the robot
 
 The inputs of the model are:
 
-* $v$ linear velocity of the robot
-* $w$ angular velocity of the robot
+* **v** linear velocity of the robot
+* **w** angular velocity of the robot
 
 ## Demo
 
