@@ -1,6 +1,6 @@
 # mpc_python
 
-Python implementation of mpc controller for path tracking.
+Python implementation of a mpc controller for path tracking using **[CVXPY](https://www.cvxpy.org/)**.
 
 ## About
 
@@ -25,12 +25,24 @@ The inputs of the model are:
 
 ## Demo
 
+The MPC implementation is tested using **[bullet](https://pybullet.org/wordpress/)** physics simulator.
+
+![](img/Turtlebot.png)
+
+Results:
+
 ![](img/demo.gif)
 
-To run the demo:
+To run the pybullet demo:
 
 ```bash
-python3 mpc_demo/main.py
+python3 mpc_demo/mpc_demo_pybullet.py
+```
+
+To run the simulation-less demo:
+
+```bash
+python3 mpc_demo/mpc_demo_pybullet.py
 ```
 
 ## Requirements
