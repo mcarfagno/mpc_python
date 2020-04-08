@@ -25,7 +25,7 @@ The inputs of the model are:
 
 ## Demo
 
-The MPC implementation is tested using **[bullet](https://pybullet.org/wordpress/)** physics simulator.
+The MPC implementation is tested using **[bullet](https://pybullet.org/wordpress/)** physics simulator. Turtlebot model is from: *https://github.com/erwincoumans/pybullet_robots*.
 
 ![](img/Turtlebot.png)
 
