@@ -32,6 +32,8 @@ def set_ctrl(robotId,v,w):
 	p.setJointMotorControl2(robotId,1,p.VELOCITY_CONTROL,targetVelocity=rightWheelVelocity,force=1000)
 
 def plot(path,x_history,y_history):
+    """
+    """
     plt.style.use("ggplot")
     plt.figure()
     plt.title("MPC Tracking Results")
@@ -42,20 +44,20 @@ def plot(path,x_history,y_history):
     plt.legend()
     plt.show()
 
-def do_sim():
+def run_sim():
+    """
+    """
     p.connect(p.GUI)
 
     start_offset = [0,2,0]
     start_orientation = p.getQuaternionFromEuler([0,0,0])
     turtle = p.loadURDF("turtlebot.urdf",start_offset, start_orientation)
-
     plane = p.loadURDF("plane.urdf")
+
     p.setRealTimeSimulation(1)
     p.setGravity(0,0,-10)
 
-    state =  get_state(turtle)
-
-    # MPC step
+    # MPC time step
     dt = 0.25
 
     # starting guess output
@@ -73,6 +75,7 @@ def do_sim():
     y_history=[]
 
     while (1):
+
         state =  get_state(turtle)
         x_history.append(state[0])
         y_history.append(state[1])
@@ -99,4 +102,4 @@ def do_sim():
             time.sleep(dt-elapsed)
 
 if __name__ == '__main__':
-    do_sim()
+    run_sim()
