@@ -43,12 +43,29 @@ class MPC():
         self.h_history=[]
         self.v_history=[]
         self.w_history=[]
+        self.predicted=None
 
         #Initialise plot
         plt.style.use("ggplot")
         self.fig = plt.figure()
         plt.ion()
         plt.show()
+
+    def predict_motion(self):
+        '''
+        '''
+        predicted=np.zeros(self.opt_u.shape)
+        x=self.state[0]
+        y=self.state[1]
+        th=self.state[2]
+        for idx,v,w in zip(range(len(self.opt_u[0,:])),self.opt_u[0,:],self.opt_u[1,:]):
+            x = x+v*np.cos(th)*self.dt
+            y = y+v*np.sin(th)*self.dt
+            th= th +w*self.dt
+            predicted[0,idx]=x
+            predicted[1,idx]=y
+
+        self.predicted = predicted
 
     def run(self):
         '''
@@ -70,7 +87,7 @@ class MPC():
                 # print("CVXPY Optimization Time: {:.4f}s".format(time.time()-start))
 
                 self.update_sim(self.opt_u[0,1],self.opt_u[1,1])
-
+                self.predict_motion()
                 self.plot_sim()
 
     def update_sim(self,lin_v,ang_v):
@@ -109,6 +126,12 @@ class MPC():
                                                  marker=".",
                                                  alpha=0.5,
                                                  label="vehicle trajectory")
+
+        if self.predicted is not None:
+            plt.plot(self.predicted[0,:], self.predicted[1,:], c='tab:green',
+                                                     marker=".",
+                                                     alpha=0.5,
+                                                     label="mpc opt trajectory")
 
         # plt.plot(self.x_history[-1], self.y_history[-1], c='tab:blue',
         #                                                  marker=".",

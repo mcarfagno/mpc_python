@@ -5,6 +5,9 @@ from matplotlib import animation
 from utils import compute_path_from_wp
 from cvxpy_mpc import optimize
 
+from mpc_config import Params
+P=Params()
+
 import sys
 import time
 
@@ -40,7 +43,7 @@ def plot(path,x_history,y_history):
 
     plt.plot(path[0,:],path[1,:], c='tab:orange',marker=".",label="reference track")
     plt.plot(x_history, y_history, c='tab:blue',marker=".",alpha=0.5,label="vehicle trajectory")
-
+    plt.axis("equal")
     plt.legend()
     plt.show()
 
@@ -58,19 +61,19 @@ def run_sim():
     p.setGravity(0,0,-10)
 
     # MPC time step
-    dt = 0.25
+    P.dt = 0.25
 
-    # starting guess output
-    N = 5 #number of state variables
-    M = 2 #number of control variables
-    T = 20 #Prediction Horizon
-
-    opt_u =  np.zeros((M,T))
+    opt_u =  np.zeros((P.M,P.T))
     opt_u[0,:] = 1 #m/s
     opt_u[1,:] = np.radians(0) #rad/s
 
     # Interpolated Path to follow given waypoints
-    path = compute_path_from_wp([0,10,12,2,4,14],[0,0,2,10,12,12])
+    path = compute_path_from_wp([0,3,4,6,10,13],
+                                     [0,0,2,4,3,3],1)
+
+    for x_,y_ in zip(path[0,:],path[1,:]):
+        p.addUserDebugLine([x_,y_,0],[x_,y_,0.33],[0,0,1])
+
     x_history=[]
     y_history=[]
 
@@ -98,8 +101,8 @@ def run_sim():
 
         set_ctrl(turtle,opt_u[0,1],opt_u[1,1])
 
-        if dt-elapsed>0:
-            time.sleep(dt-elapsed)
+        if P.dt-elapsed>0:
+            time.sleep(P.dt-elapsed)
 
 if __name__ == '__main__':
     run_sim()

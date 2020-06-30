@@ -12,8 +12,11 @@ import time
 
 # Robot Starting position
 SIM_START_X=0
-SIM_START_Y=2
+SIM_START_Y=0.5
 SIM_START_H=0
+
+from mpc_config import Params
+P=Params()
 
 # Classes
 class MPC():
@@ -22,19 +25,15 @@ class MPC():
 
         # State for the robot mathematical model [x,y,heading]
         self.state =  [SIM_START_X, SIM_START_Y, SIM_START_H]
-        # Sim step
-        self.dt = 0.25
 
-        # starting guess output
-        N = 5 #number of state variables
-        M = 2 #number of control variables
-        T = 20 #Prediction Horizon
-        self.opt_u =  np.zeros((M,T))
+        self.opt_u =  np.zeros((P.M,P.T))
         self.opt_u[0,:] = 1 #m/s
         self.opt_u[1,:] = np.radians(0) #rad/s
 
         # Interpolated Path to follow given waypoints
-        self.path = compute_path_from_wp([0,10,12,2,4,14],[0,0,2,10,12,12])
+        #self.path = compute_path_from_wp([0,10,12,2,4,14],[0,0,2,10,12,12])
+        self.path = compute_path_from_wp([0,3,4,6,10,13],
+                                         [0,0,2,4,3,3],1)
 
         # Sim help vars
         self.sim_time=0
@@ -59,9 +58,9 @@ class MPC():
         y=self.state[1]
         th=self.state[2]
         for idx,v,w in zip(range(len(self.opt_u[0,:])),self.opt_u[0,:],self.opt_u[1,:]):
-            x = x+v*np.cos(th)*self.dt
-            y = y+v*np.sin(th)*self.dt
-            th= th +w*self.dt
+            x = x+v*np.cos(th)*P.dt
+            y = y+v*np.sin(th)*P.dt
+            th= th +w*P.dt
             predicted[0,idx]=x
             predicted[1,idx]=y
 
@@ -98,13 +97,13 @@ class MPC():
         :param ang_v: float
         '''
 
-        self.state[0] = self.state[0] +lin_v*np.cos(self.state[2])*self.dt
-        self.state[1] = self.state[1] +lin_v*np.sin(self.state[2])*self.dt
-        self.state[2] = self.state[2] +ang_v*self.dt
+        self.state[0] = self.state[0] +lin_v*np.cos(self.state[2])*P.dt
+        self.state[1] = self.state[1] +lin_v*np.sin(self.state[2])*P.dt
+        self.state[2] = self.state[2] +ang_v*P.dt
 
     def plot_sim(self):
 
-        self.sim_time = self.sim_time+self.dt
+        self.sim_time = self.sim_time+P.dt
         self.x_history.append(self.state[0])
         self.y_history.append(self.state[1])
         self.h_history.append(self.state[2])
@@ -152,13 +151,14 @@ class MPC():
         plt.yticks(np.arange(min(self.path[1,:])-1., max(self.path[1,:]+1.)+1, 1.0))
         plt.xlabel('map x')
         plt.xticks(np.arange(min(self.path[0,:])-1., max(self.path[0,:]+1.)+1, 1.0))
+        plt.axis("equal")
         #plt.legend()
 
         plt.subplot(grid[0, 2])
         #plt.title("Linear Velocity {} m/s".format(self.v_history[-1]))
         plt.plot(self.v_history,c='tab:orange')
         locs, _ = plt.xticks()
-        plt.xticks(locs[1:], locs[1:]*self.dt)
+        plt.xticks(locs[1:], locs[1:]*P.dt)
         plt.ylabel('v(t) [m/s]')
         plt.xlabel('t [s]')
 
@@ -167,7 +167,7 @@ class MPC():
         plt.plot(np.degrees(self.w_history),c='tab:orange')
         plt.ylabel('w(t) [deg/s]')
         locs, _ = plt.xticks()
-        plt.xticks(locs[1:], locs[1:]*self.dt)
+        plt.xticks(locs[1:], locs[1:]*P.dt)
         plt.xlabel('t [s]')
 
         plt.tight_layout()
