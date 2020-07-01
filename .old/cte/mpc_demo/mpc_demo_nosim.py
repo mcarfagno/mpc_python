@@ -11,11 +11,9 @@ import sys
 import time
 
 # Robot Starting position
-SIM_START_X=0.
+SIM_START_X=0
 SIM_START_Y=0.5
-SIM_START_V=0.
-SIM_START_H=0.
-L=0.3
+SIM_START_H=0
 
 from mpc_config import Params
 P=Params()
@@ -26,25 +24,24 @@ class MPC():
     def __init__(self):
 
         # State for the robot mathematical model [x,y,heading]
-        self.state =  [SIM_START_X, SIM_START_Y, SIM_START_V, SIM_START_H]
+        self.state =  [SIM_START_X, SIM_START_Y, SIM_START_H]
 
         self.opt_u =  np.zeros((P.M,P.T))
-        self.opt_u[0,:] = 0.5 #m/ss
+        self.opt_u[0,:] = 1 #m/s
         self.opt_u[1,:] = np.radians(0) #rad/s
 
         # Interpolated Path to follow given waypoints
         #self.path = compute_path_from_wp([0,10,12,2,4,14],[0,0,2,10,12,12])
-        self.path = compute_path_from_wp([0,3,4,6,10,12,14,6,1,0],
-                             [0,0,2,4,3,3,-2,-6,-2,-2],1)
+        self.path = compute_path_from_wp([0,3,4,6,10,13],
+                                         [0,0,2,4,3,3],1)
 
         # Sim help vars
         self.sim_time=0
         self.x_history=[]
         self.y_history=[]
-        self.v_history=[]
         self.h_history=[]
-        self.a_history=[]
-        self.d_history=[]
+        self.v_history=[]
+        self.w_history=[]
         self.predicted=None
 
         #Initialise plot
@@ -59,15 +56,11 @@ class MPC():
         predicted=np.zeros(self.opt_u.shape)
         x=self.state[0]
         y=self.state[1]
-        v=self.state[2]
-        th=self.state[3]
-
-        for idx,a,delta in zip(range(len(self.opt_u[0,:])),self.opt_u[0,:],self.opt_u[1,:]):
+        th=self.state[2]
+        for idx,v,w in zip(range(len(self.opt_u[0,:])),self.opt_u[0,:],self.opt_u[1,:]):
             x = x+v*np.cos(th)*P.dt
             y = y+v*np.sin(th)*P.dt
-            v = v+a*P.dt
-            th = th + v*np.tan(delta)/L*P.dt
-
+            th= th +w*P.dt
             predicted[0,idx]=x
             predicted[1,idx]=y
 
@@ -80,7 +73,7 @@ class MPC():
         while 1:
             if self.state is not None:
 
-                if np.sqrt((self.state[0]-self.path[0,-1])**2+(self.state[1]-self.path[1,-1])**2)<0.5:
+                if np.sqrt((self.state[0]-self.path[0,-1])**2+(self.state[1]-self.path[1,-1])**2)<1:
                     print("Success! Goal Reached")
                     return
 
@@ -96,7 +89,7 @@ class MPC():
                 self.predict_motion()
                 self.plot_sim()
 
-    def update_sim(self,acc,steer):
+    def update_sim(self,lin_v,ang_v):
         '''
         Updates state.
 
@@ -104,20 +97,18 @@ class MPC():
         :param ang_v: float
         '''
 
-        self.state[0] = self.state[0] +self.state[2]*np.cos(self.state[3])*P.dt
-        self.state[1] = self.state[1] +self.state[2]*np.sin(self.state[3])*P.dt
-        self.state[2] = self.state[2] +acc*P.dt
-        self.state[3] = self.state[3] + self.state[2]*np.tan(steer)/L*P.dt
+        self.state[0] = self.state[0] +lin_v*np.cos(self.state[2])*P.dt
+        self.state[1] = self.state[1] +lin_v*np.sin(self.state[2])*P.dt
+        self.state[2] = self.state[2] +ang_v*P.dt
 
     def plot_sim(self):
 
         self.sim_time = self.sim_time+P.dt
         self.x_history.append(self.state[0])
         self.y_history.append(self.state[1])
-        self.v_history.append(self.state[2])
-        self.h_history.append(self.state[3])
-        self.a_history.append(self.opt_u[0,1])
-        self.d_history.append(self.opt_u[1,1])
+        self.h_history.append(self.state[2])
+        self.v_history.append(self.opt_u[0,1])
+        self.w_history.append(self.opt_u[1,1])
 
         plt.clf()
 
@@ -165,16 +156,16 @@ class MPC():
 
         plt.subplot(grid[0, 2])
         #plt.title("Linear Velocity {} m/s".format(self.v_history[-1]))
-        plt.plot(self.a_history,c='tab:orange')
+        plt.plot(self.v_history,c='tab:orange')
         locs, _ = plt.xticks()
         plt.xticks(locs[1:], locs[1:]*P.dt)
-        plt.ylabel('a(t) [m/ss]')
+        plt.ylabel('v(t) [m/s]')
         plt.xlabel('t [s]')
 
         plt.subplot(grid[1, 2])
         #plt.title("Angular Velocity {} m/s".format(self.w_history[-1]))
-        plt.plot(np.degrees(self.d_history),c='tab:orange')
-        plt.ylabel('w(t) [deg]')
+        plt.plot(np.degrees(self.w_history),c='tab:orange')
+        plt.ylabel('w(t) [deg/s]')
         locs, _ = plt.xticks()
         plt.xticks(locs[1:], locs[1:]*P.dt)
         plt.xlabel('t [s]')
@@ -186,9 +177,9 @@ class MPC():
 
 
 def plot_car(x, y, yaw):
-    LENGTH = 0.3  # [m]
-    WIDTH = 0.1  # [m]
-    OFFSET = LENGTH  # [m]
+    LENGTH = 1.0  # [m]
+    WIDTH = 0.5  # [m]
+    OFFSET = LENGTH/2  # [m]
 
     outline = np.array([[-OFFSET, (LENGTH - OFFSET), (LENGTH - OFFSET), -OFFSET, -OFFSET],
                         [WIDTH / 2, WIDTH / 2, - WIDTH / 2, -WIDTH / 2, WIDTH / 2]])

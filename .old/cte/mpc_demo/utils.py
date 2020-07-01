@@ -62,8 +62,8 @@ def road_curve(state,track):
     dx = lk_wp[0,:] - state[0]
     dy = lk_wp[1,:] - state[1]
 
-    wp_vehicle_frame = np.vstack(( dx * np.cos(-state[3]) - dy * np.sin(-state[3]),
-                                   dy * np.cos(-state[3]) + dx * np.sin(-state[3]) ))
+    wp_vehicle_frame = np.vstack(( dx * np.cos(-state[2]) - dy * np.sin(-state[2]),
+                                   dy * np.cos(-state[2]) + dx * np.sin(-state[2]) ))
 
     #fit poly
     return np.polyfit(wp_vehicle_frame[0,:], wp_vehicle_frame[1,:], POLY_RANK, rcond=None, full=False, w=None, cov=False)

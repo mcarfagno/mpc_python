@@ -13,36 +13,32 @@ P=Params()
 def get_linear_model(x_bar,u_bar):
     """
     """
-    L=0.3
 
     x = x_bar[0]
     y = x_bar[1]
-    v = x_bar[2]
-    theta = x_bar[3]
+    theta = x_bar[2]
 
-    a = u_bar[0]
-    delta = u_bar[1]
+    v = u_bar[0]
+    w = u_bar[1]
 
     A = np.zeros((P.N,P.N))
-    A[0,2]=np.cos(theta)
-    A[0,3]=-v*np.sin(theta)
-    A[1,2]=np.sin(theta)
-    A[1,3]=v*np.cos(theta)
-    A[3,2]=v*np.tan(delta)/L
+    A[0,2]=-v*np.sin(theta)
+    A[1,2]=v*np.cos(theta)
     A_lin=np.eye(P.N)+P.dt*A
 
     B = np.zeros((P.N,P.M))
-    B[2,0]=1
-    B[3,1]=v/(L*np.cos(delta)**2)
+    B[0,0]=np.cos(theta)
+    B[1,0]=np.sin(theta)
+    B[2,1]=1
     B_lin=P.dt*B
 
-    f_xu=np.array([v*np.cos(theta), v*np.sin(theta), a,v*np.tan(delta)/L]).reshape(P.N,1)
+    f_xu=np.array([v*np.cos(theta),v*np.sin(theta),w]).reshape(P.N,1)
     C_lin = P.dt*(f_xu - np.dot(A,x_bar.reshape(P.N,1)) - np.dot(B,u_bar.reshape(P.M,1)))
 
-    return np.round(A_lin,4), np.round(B_lin,4), np.round(C_lin,4)
+    return A_lin,B_lin,C_lin
 
 
-def optimize(state,u_bar,track,ref_vel=1.):
+def optimize(state,u_bar,track):
     '''
     :param state:
     :param u_bar:
@@ -51,15 +47,14 @@ def optimize(state,u_bar,track,ref_vel=1.):
     '''
 
     MAX_SPEED = 1.25
-    MAX_STEER = 1.57/2
-    MAX_ACC = 1.0
+    MIN_SPEED = 0.75
+    MAX_STEER_SPEED = 1.57/2
 
     # compute polynomial coefficients of the track
     K=road_curve(state,track)
 
     # dynamics starting state w.r.t vehicle frame
     x_bar=np.zeros((P.N,P.T+1))
-    x_bar[2,0]=state[2]
 
     #prediction for linearization of costrains
     for t in range (1,P.T+1):
@@ -77,16 +72,16 @@ def optimize(state,u_bar,track,ref_vel=1.):
 
     for t in range(P.T):
 
-        cost += 30*cp.sum_squares(x[3,t]-np.arctan(df(x_bar[0,t],K))) # psi
+        #cost += 30*cp.sum_squares(x[2,t]-np.arctan(df(x_bar[0,t],K))) # psi
+        cost += 50*cp.sum_squares(x[2,t]-np.arctan2(df(x_bar[0,t],K),x_bar[0,t])) # psi
         cost += 20*cp.sum_squares(f(x_bar[0,t],K)-x[1,t]) # cte
-        cost += 10*cp.sum_squares(ref_vel-x[2,t]) # desired v
 
         # Actuation rate of change
         if t < (P.T - 1):
-            cost += cp.quad_form(u[:, t + 1] - u[:, t], 10*np.eye(P.M))
+            cost += cp.quad_form(u[:, t + 1] - u[:, t], 100*np.eye(P.M))
 
         # Actuation effort
-        cost += cp.quad_form( u[:, t],10*np.eye(P.M))
+        cost += cp.quad_form( u[:, t],1*np.eye(P.M))
 
         # Kinrmatics Constrains (Linearized model)
         A,B,C=get_linear_model(x_bar[:,t],u_bar[:,t])
@@ -94,10 +89,9 @@ def optimize(state,u_bar,track,ref_vel=1.):
 
     # sums problem objectives and concatenates constraints.
     constr += [x[:,0] == x_bar[:,0]] #<--watch out the start condition
-    constr += [x[2, :] <= MAX_SPEED]
-    constr += [x[2, :] >= 0.0]
-    constr += [cp.abs(u[0, :]) <= MAX_ACC]
-    constr += [cp.abs(u[1, :]) <= MAX_STEER]
+    constr += [u[0, :] <= MAX_SPEED]
+    constr += [u[0, :] >= MIN_SPEED]
+    constr += [cp.abs(u[1, :]) <= MAX_STEER_SPEED]
 
     # Solve
     prob = cp.Problem(cp.Minimize(cost), constr)
