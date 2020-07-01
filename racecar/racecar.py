@@ -19,9 +19,6 @@ track = p.loadURDF("plane.urdf")
 #otherCar = p.loadURDF("f10_racecar/racecar_differential.urdf", [0,1,.3])
 car = p.loadURDF("f10_racecar/racecar_differential.urdf", [0,0,.3])
 
-
-
-
 for wheel in range(p.getNumJoints(car)):
 	print("joint[",wheel,"]=", p.getJointInfo(car,wheel))
 	p.setJointMotorControl2(car,wheel,p.VELOCITY_CONTROL,targetVelocity=0,force=0)
