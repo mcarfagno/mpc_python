@@ -4,30 +4,35 @@ Python implementation of a mpc controller for path tracking using **[CVXPY](http
 
 ## About
 
-The MPC is a model predictive path following controller which does follow a predefined reference path Xref and Yref by solving an optimization problem. The resulting optimization problem is shown in the following equation:
+The MPC is a model predictive path following controller which does follow a predefined reference by solving an optimization problem. The resulting optimization problem is shown in the following equation:
 
 ![](img/quicklatex1.png)
 
-The vehicle dynamics are described by the differential drive model:
+The terns of the cost function are the sum of the **cross-track error**, **heading error**, **velocity error** and **actuaction effort**.
+
+Where R,P,K,Q are the cost matrices used to tune the response.
+
+The vehicle model is described by the bicycle kinematics model using the state space matrices A and B:
 
 ![](img/quicklatex2.png)
 
-The state variables of the model are:
+The state variables **(x)** of the model are:
 
 * **x** coordinate of the robot
 * **y** coordinate of the robot
+* **v** velocuty of the robot
 * **theta** heading of the robot
 
-The inputs of the model are:
+The inputs **(u)** of the model are:
 
-* **v** linear velocity of the robot
-* **w** angular velocity of the robot
+* **a** linear acceleration of the robot
+* **delta** steering angle of the robot
 
 ## Demo
 
-The MPC implementation is tested using **[bullet](https://pybullet.org/wordpress/)** physics simulator. Turtlebot model is from: *https://github.com/erwincoumans/pybullet_robots*.
+The MPC implementation is tested using **[bullet](https://pybullet.org/wordpress/)** physics simulator. Racing car model is from: *https://github.com/erwincoumans/pybullet_robots*.
 
-![](img/Turtlebot.png)
+![](img/f10.png)
 
 Results:
 

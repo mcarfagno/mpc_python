@@ -50,8 +50,8 @@ def optimize(state,u_bar,track,ref_vel=1.):
     :returns:
     '''
 
-    MAX_SPEED = 1.25
-    MAX_STEER = 1.57/2
+    MAX_SPEED = ref_vel*1.5
+    MAX_STEER = np.pi/4
     MAX_ACC = 1.0
 
     # compute polynomial coefficients of the track
@@ -77,9 +77,9 @@ def optimize(state,u_bar,track,ref_vel=1.):
 
     for t in range(P.T):
 
-        cost += 30*cp.sum_squares(x[3,t]-np.arctan(df(x_bar[0,t],K))) # psi
-        cost += 20*cp.sum_squares(f(x_bar[0,t],K)-x[1,t]) # cte
-        cost += 10*cp.sum_squares(ref_vel-x[2,t]) # desired v
+        cost += 20*cp.sum_squares(x[3,t]-np.clip(np.arctan(df(x_bar[0,t],K)),-np.pi,np.pi) ) # psi
+        cost += 40*cp.sum_squares(f(x_bar[0,t],K)-x[1,t]) # cte
+        cost += 20*cp.sum_squares(ref_vel-x[2,t]) # desired v
 
         # Actuation rate of change
         if t < (P.T - 1):
@@ -101,10 +101,14 @@ def optimize(state,u_bar,track,ref_vel=1.):
 
     # Solve
     prob = cp.Problem(cp.Minimize(cost), constr)
-    solution = prob.solve(solver=cp.OSQP, verbose=False)
+    prob.solve(solver=cp.OSQP, verbose=False)
+
+    if "optimal" not in prob.status:
+        print("WARN: No optimal solution")
+        return u_bar
 
     #retrieved optimized U and assign to u_bar to linearize in next step
-    u_bar=np.vstack((np.array(u.value[0, :]).flatten(),
+    u_opt=np.vstack((np.array(u.value[0, :]).flatten(),
                     (np.array(u.value[1, :]).flatten())))
 
-    return u_bar
+    return u_opt

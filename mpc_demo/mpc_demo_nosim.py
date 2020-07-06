@@ -34,8 +34,8 @@ class MPC():
 
         # Interpolated Path to follow given waypoints
         #self.path = compute_path_from_wp([0,10,12,2,4,14],[0,0,2,10,12,12])
-        self.path = compute_path_from_wp([0,3,4,6,10,12,14,6,1,0],
-                             [0,0,2,4,3,3,-2,-6,-2,-2],1)
+        self.path = compute_path_from_wp([0,3,4,6,10,12,13,13,6,1,0],
+                                         [0,0,2,4,3,3,-1,-2,-6,-2,-2],0.5)
 
         # Sim help vars
         self.sim_time=0
@@ -174,7 +174,7 @@ class MPC():
         plt.subplot(grid[1, 2])
         #plt.title("Angular Velocity {} m/s".format(self.w_history[-1]))
         plt.plot(np.degrees(self.d_history),c='tab:orange')
-        plt.ylabel('w(t) [deg]')
+        plt.ylabel('gamma(t) [deg]')
         locs, _ = plt.xticks()
         plt.xticks(locs[1:], locs[1:]*P.dt)
         plt.xlabel('t [s]')
@@ -186,8 +186,8 @@ class MPC():
 
 
 def plot_car(x, y, yaw):
-    LENGTH = 0.3  # [m]
-    WIDTH = 0.1  # [m]
+    LENGTH = 0.35  # [m]
+    WIDTH = 0.2  # [m]
     OFFSET = LENGTH  # [m]
 
     outline = np.array([[-OFFSET, (LENGTH - OFFSET), (LENGTH - OFFSET), -OFFSET, -OFFSET],

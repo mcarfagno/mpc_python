@@ -9,9 +9,8 @@ def compute_path_from_wp(start_xp, start_yp, step = 0.1):
     delta = step #[m]
 
     for idx in range(len(start_xp)-1):
-        section_len = np.sum(np.sqrt(np.power(np.diff(start_xp[idx:idx+2]),2)+np.power(np.diff(start_yp[idx:idx+2]),2)))
-
-        interp_range = np.linspace(0,1,np.floor(section_len/delta).astype(int))
+        section_len = np.sqrt(np.sum(np.power(np.diff(start_xp[idx:idx+2]),2)+np.power(np.diff(start_yp[idx:idx+2]),2)))
+        interp_range = np.linspace(0,1, int(1+section_len/delta))
 
         fx=interp1d(np.linspace(0,1,2),start_xp[idx:idx+2],kind=1)
         fy=interp1d(np.linspace(0,1,2),start_yp[idx:idx+2],kind=1)
@@ -54,9 +53,9 @@ def road_curve(state,track):
     POLY_RANK = 3
 
     #given vehicle pos find lookahead waypoints
-    nn_idx=get_nn_idx(state,track)-1
-    LOOKAHED = POLY_RANK + 1
-    lk_wp=track[:,nn_idx:nn_idx+LOOKAHED]
+    nn_idx=get_nn_idx(state,track)
+    LOOKAHED = POLY_RANK*2
+    lk_wp=track[:,max(0,nn_idx-1):nn_idx+LOOKAHED]
 
     #trasform lookahead waypoints to vehicle ref frame
     dx = lk_wp[0,:] - state[0]
@@ -68,17 +67,32 @@ def road_curve(state,track):
     #fit poly
     return np.polyfit(wp_vehicle_frame[0,:], wp_vehicle_frame[1,:], POLY_RANK, rcond=None, full=False, w=None, cov=False)
 
-def f(x,coeff):
-    """
-    """
-    return round(coeff[0]*x**3 + coeff[1]*x**2 + coeff[2]*x**1 + coeff[3]*x**0,6)
+# def f(x,coeff):
+#     """
+#     """
+#     return round(coeff[0]*x**3 + coeff[1]*x**2 + coeff[2]*x**1 + coeff[3]*x**0,6)
 
 # def f(x,coeff):
 #     return  round(coeff[0]*x**5+coeff[1]*x**4+coeff[2]*x**3+coeff[3]*x**2+coeff[4]*x**1+coeff[5]*x**0,6)
 
-def df(x,coeff):
-    """
-    """
-    return round(3*coeff[0]*x**2 + 2*coeff[1]*x**1 + coeff[2]*x**0,6)
+def f(x,coeff):
+    y=0
+    j=len(coeff)
+    for k in range(j):
+        y += coeff[k]*x**(j-k-1)
+    return round(y,6)
+
+# def df(x,coeff):
+#     """
+#     """
+#     return round(3*coeff[0]*x**2 + 2*coeff[1]*x**1 + coeff[2]*x**0,6)
+
 # def df(x,coeff):
 #     return round(5*coeff[0]*x**4 + 4*coeff[1]*x**3 +3*coeff[2]*x**2 + 2*coeff[3]*x**1 + coeff[4]*x**0,6)
+
+def df(x,coeff):
+    y=0
+    j=len(coeff)
+    for k in range(j-1):
+        y += (j-k-1)*coeff[k]*x**(j-k-2)
+    return round(y,6)
