@@ -56,6 +56,7 @@ def run_sim():
     """
     """
     p.connect(p.GUI)
+    p.resetDebugVisualizerCamera(cameraDistance=1.0, cameraYaw=-90, cameraPitch=-45, cameraTargetPosition=[-0.1,-0.0,0.65])
 
     p.resetSimulation()
 
@@ -113,11 +114,18 @@ def run_sim():
     y_history=[]
 
     time.sleep(0.5)
+    input("Press Enter to continue...")
     while (1):
 
         state =  get_state(car)
         x_history.append(state[0])
         y_history.append(state[1])
+
+        #add 1 timestep delay to input
+        state[0]=state[0]+state[2]*np.cos(state[3])*P.dt
+        state[1]=state[1]+state[2]*np.sin(state[3])*P.dt
+        state[2]=state[2]+opt_u[0,0]*P.dt
+        state[3]=state[3]+opt_u[0,0]*np.tan(opt_u[1,0])/0.3*P.dt
 
         #track path in bullet
         p.addUserDebugLine([state[0],state[1],0],[state[0],state[1],0.5],[1,0,0])
