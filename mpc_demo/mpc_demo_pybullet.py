@@ -69,7 +69,7 @@ def run_sim():
     plane = p.loadURDF("racecar/plane.urdf")
     #track = p.loadSDF("racecar/f10_racecar/meshes/barca_track.sdf", globalScaling=1)
 
-    car = p.loadURDF("racecar/f10_racecar/racecar_differential.urdf", [0,0,.3])
+    car = p.loadURDF("racecar/f10_racecar/racecar_differential.urdf", [0,0.3,.3])
     for wheel in range(p.getNumJoints(car)):
     	print("joint[",wheel,"]=", p.getJointInfo(car,wheel))
     	p.setJointMotorControl2(car,wheel,p.VELOCITY_CONTROL,targetVelocity=0,force=0)
