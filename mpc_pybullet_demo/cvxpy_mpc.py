@@ -5,7 +5,7 @@ from scipy.integrate import odeint
 from scipy.interpolate import interp1d
 import cvxpy as cp
 
-from utils import road_curve, f, df
+from utils import *
 
 from mpc_config import Params
 P=Params()
@@ -50,16 +50,17 @@ def optimize(state,u_bar,track,ref_vel=1.):
     :returns:
     '''
 
-    MAX_SPEED = ref_vel*1.5
-    MAX_STEER = np.pi/4
-    MAX_ACC = 1.0
+    MAX_SPEED = 1.5 #m/s
+    MAX_ACC = 1.0 #m/ss
+    MAX_D_ACC = 1.0 #m/sss
+    MAX_STEER = np.radians(30) #rad
+    MAX_D_STEER = np.radians(30) #rad/s
 
-    # compute polynomial coefficients of the track
-    K=road_curve(state,track)
-
-    # dynamics starting state w.r.t vehicle frame
-    x_bar=np.zeros((P.N,P.T+1))
-    x_bar[2,0]=state[2]
+    REF_VEL = ref_vel #m/s
+    
+    # dynamics starting state
+    x_bar = np.zeros((P.N,P.T+1))
+    x_bar[:,0] = state
 
     #prediction for linearization of costrains
     for t in range (1,P.T+1):
@@ -74,30 +75,41 @@ def optimize(state,u_bar,track,ref_vel=1.):
     constr = []
     x = cp.Variable((P.N, P.T+1))
     u = cp.Variable((P.M, P.T))
+    
+    # Cost Matrices
+    Q = np.diag([20,20,10,0]) #state error cost
+    Qf = np.diag([10,10,10,10]) #state final error cost
+    R = np.diag([10,10])       #input cost
+    R_ = np.diag([10,10])      #input rate of change cost
 
+    #Get Reference_traj
+    x_ref, d_ref = get_ref_trajectory(x_bar[:,0] ,track, REF_VEL)
+
+    #Prediction Horizon
     for t in range(P.T):
 
-        cost += 20*cp.sum_squares(x[3,t]-np.clip(np.arctan(df(x_bar[0,t],K)),-np.pi,np.pi) ) # psi
-        cost += 40*cp.sum_squares(f(x_bar[0,t],K)-x[1,t]) # cte
-        cost += 20*cp.sum_squares(ref_vel-x[2,t]) # desired v
+        # Tracking Error
+        cost += cp.quad_form(x[:,t] - x_ref[:,t], Q)
+
+        # Actuation effort
+        cost += cp.quad_form(u[:,t], R)
 
         # Actuation rate of change
         if t < (P.T - 1):
-            cost += cp.quad_form(u[:, t + 1] - u[:, t], 10*np.eye(P.M))
-
-        # Actuation effort
-        cost += cp.quad_form( u[:, t],10*np.eye(P.M))
+            cost += cp.quad_form(u[:,t+1] - u[:,t], R_)
+            constr+= [cp.abs(u[0, t + 1] - u[0, t])/P.dt <= MAX_D_ACC]    #max acc rate of change
+            constr += [cp.abs(u[1, t + 1] - u[1, t])/P.dt <= MAX_D_STEER] #max steer rate of change
 
         # Kinrmatics Constrains (Linearized model)
-        A,B,C=get_linear_model(x_bar[:,t],u_bar[:,t])
+        A,B,C = get_linear_model(x_bar[:,t], u_bar[:,t])
         constr += [x[:,t+1] == A@x[:,t] + B@u[:,t] + C.flatten()]
 
     # sums problem objectives and concatenates constraints.
-    constr += [x[:,0] == x_bar[:,0]] #<--watch out the start condition
-    constr += [x[2, :] <= MAX_SPEED]
-    constr += [x[2, :] >= 0.0]
-    constr += [cp.abs(u[0, :]) <= MAX_ACC]
-    constr += [cp.abs(u[1, :]) <= MAX_STEER]
+    constr += [x[:,0] == x_bar[:,0]]           #starting condition
+    constr += [x[2,:] <= MAX_SPEED]           #max speed
+    constr += [x[2,:] >= 0.0]                 #min_speed (not really needed)
+    constr += [cp.abs(u[0,:]) <= MAX_ACC]     #max acc
+    constr += [cp.abs(u[1,:]) <= MAX_STEER]   #max steer
 
     # Solve
     prob = cp.Problem(cp.Minimize(cost), constr)

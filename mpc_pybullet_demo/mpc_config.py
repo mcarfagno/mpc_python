@@ -4,3 +4,4 @@ class Params():
         self.M = 2 #number of control variables
         self.T = 10 #Prediction Horizon
         self.dt = 0.25 #discretization step
+        self.path_tick = 0.05

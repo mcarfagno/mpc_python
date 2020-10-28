@@ -20,7 +20,7 @@ def get_state(robotId):
     robPos, robOrn = p.getBasePositionAndOrientation(robotId)
     linVel,angVel = p.getBaseVelocity(robotId)
 
-    return[robPos[0], robPos[1], linVel[0], p.getEulerFromQuaternion(robOrn)[2]]
+    return[robPos[0], robPos[1], np.sqrt(linVel[0]**2 + linVel[1]**2), p.getEulerFromQuaternion(robOrn)[2]]
 
 def set_ctrl(robotId,currVel,acceleration,steeringAngle):
 
@@ -105,7 +105,7 @@ def run_sim():
 
     # Interpolated Path to follow given waypoints
     path = compute_path_from_wp([0,3,4,6,10,11,12,6,1,0],
-                                [0,0,2,4,3,3,-1,-6,-2,-2],0.5)
+                                [0,0,2,4,3,3,-1,-6,-2,-2],P.path_tick)
 
     for x_,y_ in zip(path[0,:],path[1,:]):
         p.addUserDebugLine([x_,y_,0],[x_,y_,0.33],[0,0,1])

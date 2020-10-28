@@ -35,7 +35,7 @@ class MPC():
         # Interpolated Path to follow given waypoints
         #self.path = compute_path_from_wp([0,10,12,2,4,14],[0,0,2,10,12,12])
         self.path = compute_path_from_wp([0,3,4,6,10,12,13,13,6,1,0],
-                                         [0,0,2,4,3,3,-1,-2,-6,-2,-2],0.5)
+                                         [0,0,2,4,3,3,-1,-2,-6,-2,-2],P.path_tick)
 
         # Sim help vars
         self.sim_time=0
