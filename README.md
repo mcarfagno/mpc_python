@@ -6,11 +6,11 @@ Python implementation of a mpc controller for path tracking using **[CVXPY](http
 
 The MPC is a model predictive path following controller which does follow a predefined reference by solving an optimization problem. The resulting optimization problem is shown in the following equation:
 
-![](img/quicklatex1.png)
+![](img/quicklatex_equation.png)
 
-The terns of the cost function are the sum of the **cross-track error**, **heading error**, **velocity error** and **actuaction effort**.
+The terns of the cost function are the sum of the **reference tracking error**, **heading effort** and **actuaction rate of change**.
 
-Where R,P,K,Q are the cost matrices used to tune the response.
+Where R,P,Q are the cost matrices used to tune the response.
 
 The vehicle model is described by the bicycle kinematics model using the state space matrices A and B:
 
@@ -55,3 +55,8 @@ python3 mpc_demo/mpc_demo_pybullet.py
 ```bash
 pip3 install --user --requirement requirements.txt
 ```
+
+## References
+* [mpc paper](https://borrelli.me.berkeley.edu/pdfpub/IV_KinematicMPC_jason.pdf)
+* [pythonrobotics](https://github.com/AtsushiSakai/PythonRobotics/)
+* [pybullet](https://pybullet.org/wordpress/)
