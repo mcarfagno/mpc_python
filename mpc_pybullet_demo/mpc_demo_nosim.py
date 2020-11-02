@@ -76,12 +76,14 @@ class MPC():
     def run(self):
         '''
         '''
-
+        self.plot_sim()
+        input("Press Enter to continue...")
         while 1:
             if self.state is not None:
 
-                if np.sqrt((self.state[0]-self.path[0,-1])**2+(self.state[1]-self.path[1,-1])**2)<0.5:
+                if np.sqrt((self.state[0]-self.path[0,-1])**2+(self.state[1]-self.path[1,-1])**2)<0.1:
                     print("Success! Goal Reached")
+                    input("Press Enter to continue...")
                     return
 
                 #optimization loop
@@ -137,7 +139,7 @@ class MPC():
 
         if self.predicted is not None:
             plt.plot(self.predicted[0,:], self.predicted[1,:], c='tab:green',
-                                                     marker=".",
+                                                     marker="+",
                                                      alpha=0.5,
                                                      label="mpc opt trajectory")
 
@@ -186,8 +188,8 @@ class MPC():
 
 
 def plot_car(x, y, yaw):
-    LENGTH = 0.35  # [m]
-    WIDTH = 0.2  # [m]
+    LENGTH = 0.5  # [m]
+    WIDTH = 0.25  # [m]
     OFFSET = LENGTH  # [m]
 
     outline = np.array([[-OFFSET, (LENGTH - OFFSET), (LENGTH - OFFSET), -OFFSET, -OFFSET],

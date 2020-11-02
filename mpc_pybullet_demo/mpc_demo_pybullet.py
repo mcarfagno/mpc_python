@@ -130,10 +130,11 @@ def run_sim():
         #track path in bullet
         p.addUserDebugLine([state[0],state[1],0],[state[0],state[1],0.5],[1,0,0])
 
-        if np.sqrt((state[0]-path[0,-1])**2+(state[1]-path[1,-1])**2)<1:
+        if np.sqrt((state[0]-path[0,-1])**2+(state[1]-path[1,-1])**2)<0.1:
             print("Success! Goal Reached")
             set_ctrl(car,0,0,0)
             plot_results(path,x_history,y_history)
+            input("Press Enter to continue...")
             p.disconnect()
             return
 

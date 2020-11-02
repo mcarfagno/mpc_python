@@ -36,6 +36,8 @@ The MPC implementation is tested using **[bullet](https://pybullet.org/wordpress
 
 Results:
 
+![](img/demo_bullet.gif)
+
 ![](img/demo.gif)
 
 To run the pybullet demo:
