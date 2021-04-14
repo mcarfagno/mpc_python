@@ -1,7 +1,17 @@
 # mpc_python
 
-Python implementation of a mpc controller for path tracking using **[CVXPY](https://www.cvxpy.org/)**.
+I keep here my Jupyter notebooks on R&D on Model Predictive Control applyied to path-following problems in driverless vehicles. Includes also a Pybullet simulation to showcase the results. 
+This mainly uses **[CVXPY](https://www.cvxpy.org/)** as a framework.
 
+## Notebooks Contents
+
+1. State space model derivation -> analytical and numerical derivaion
+
+2. MPC -> implementation and testing various improvements
+
+3. Obstacle Avoidance -> Using constrains to avaoid collisions
+
+<!--nobody cares about this 
 ## About
 
 The MPC is a model predictive path following controller which does follow a predefined reference by solving an optimization problem. The resulting optimization problem is shown in the following equation:
@@ -27,10 +37,11 @@ The inputs **(u)** of the model are:
 
 * **a** linear acceleration of the robot
 * **delta** steering angle of the robot
+-->
 
-## Demo
+## Results
 
-The MPC implementation is tested using **[bullet](https://pybullet.org/wordpress/)** physics simulator. Racing car model is from: *https://github.com/erwincoumans/pybullet_robots*.
+Racing car model is from: *https://github.com/erwincoumans/pybullet_robots*.
 
 ![](img/f10.png)
 
@@ -58,7 +69,9 @@ python3 mpc_demo/mpc_demo_pybullet.py
 pip3 install --user --requirement requirements.txt
 ```
 
-## References
-* [mpc paper](https://borrelli.me.berkeley.edu/pdfpub/IV_KinematicMPC_jason.pdf)
-* [pythonrobotics](https://github.com/AtsushiSakai/PythonRobotics/)
-* [pybullet](https://pybullet.org/wordpress/)
+## References & Special Thanks:
+* [Prof. Borrelli - mpc papers and material](https://borrelli.me.berkeley.edu/pdfpub/IV_KinematicMPC_jason.pdf)
+* [AtsushiSakai - pythonrobotics](https://github.com/AtsushiSakai/PythonRobotics/)
+* [erwincoumans - pybullet](https://pybullet.org/wordpress/)
+* [alexliniger - mpcc](https://github.com/alexliniger/MPCC) and his [paper](https://onlinelibrary.wiley.com/doi/abs/10.1002/oca.2123)
+* [arex18 - rocket-lander](https://github.com/arex18/rocket-lander)
