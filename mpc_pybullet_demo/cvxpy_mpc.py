@@ -3,124 +3,115 @@ np.seterr(divide='ignore', invalid='ignore')
 
 from scipy.integrate import odeint
 from scipy.interpolate import interp1d
-import cvxpy as cp
+import cvxpy as opt
 
 from utils import *
 
 from mpc_config import Params
 P=Params()
 
-def get_linear_model(x_bar,u_bar):
+def get_linear_model_matrices(x_bar,u_bar):
     """
+    Computes the LTI approximated state space model x' = Ax + Bu + C
     """
-    L=0.3
-
+    
     x = x_bar[0]
     y = x_bar[1]
     v = x_bar[2]
     theta = x_bar[3]
-
+    
     a = u_bar[0]
     delta = u_bar[1]
-
+    
+    ct = np.cos(theta)
+    st = np.sin(theta)
+    cd = np.cos(delta)
+    td = np.tan(delta)
+    
     A = np.zeros((P.N,P.N))
-    A[0,2]=np.cos(theta)
-    A[0,3]=-v*np.sin(theta)
-    A[1,2]=np.sin(theta)
-    A[1,3]=v*np.cos(theta)
-    A[3,2]=v*np.tan(delta)/L
-    A_lin=np.eye(P.N)+P.dt*A
-
+    A[0,2] = ct
+    A[0,3] = -v*st
+    A[1,2] = st
+    A[1,3] = v*ct
+    A[3,2] = v*td/P.L
+    A_lin = np.eye(P.N)+P.dt*A
+    
     B = np.zeros((P.N,P.M))
     B[2,0]=1
-    B[3,1]=v/(L*np.cos(delta)**2)
+    B[3,1]=v/(P.L*cd**2)
     B_lin=P.dt*B
-
-    f_xu=np.array([v*np.cos(theta), v*np.sin(theta), a,v*np.tan(delta)/L]).reshape(P.N,1)
-    C_lin = P.dt*(f_xu - np.dot(A,x_bar.reshape(P.N,1)) - np.dot(B,u_bar.reshape(P.M,1)))
-
-    return np.round(A_lin,4), np.round(B_lin,4), np.round(C_lin,4)
-
-
-def optimize(state,u_bar,track,ref_vel=1.):
-    '''
-    :param state:
-    :param u_bar:
-    :param track:
-    :returns:
-    '''
-
-    MAX_SPEED = 1.5 #m/s
-    MAX_ACC = 1.0 #m/ss
-    MAX_D_ACC = 1.0 #m/sss
-    MAX_STEER = np.radians(30) #rad
-    MAX_D_STEER = np.radians(30) #rad/s
-
-    REF_VEL = ref_vel #m/s
     
-    # dynamics starting state
-    x_bar = np.zeros((P.N,P.T+1))
-    x_bar[:,0] = state
-
-    #prediction for linearization of costrains
-    for t in range (1,P.T+1):
-        xt=x_bar[:,t-1].reshape(P.N,1)
-        ut=u_bar[:,t-1].reshape(P.M,1)
-        A,B,C=get_linear_model(xt,ut)
-        xt_plus_one = np.squeeze(np.dot(A,xt)+np.dot(B,ut)+C)
-        x_bar[:,t]= xt_plus_one
-
-    #CVXPY Linear MPC problem statement
-    cost = 0
-    constr = []
-    x = cp.Variable((P.N, P.T+1))
-    u = cp.Variable((P.M, P.T))
+    f_xu=np.array([v*ct, v*st, a, v*td/P.L]).reshape(P.N,1)
+    C_lin = P.dt*(f_xu - np.dot(A, x_bar.reshape(P.N,1)) - np.dot(B, u_bar.reshape(P.M,1))).flatten()
     
-    # Cost Matrices
-    Q = np.diag([20,20,10,0]) #state error cost
-    Qf = np.diag([10,10,10,10]) #state final error cost
-    R = np.diag([10,10])       #input cost
-    R_ = np.diag([10,10])      #input rate of change cost
+    #return np.round(A_lin,6), np.round(B_lin,6), np.round(C_lin,6)
+    return A_lin, B_lin, C_lin
 
-    #Get Reference_traj
-    x_ref, d_ref = get_ref_trajectory(x_bar[:,0] ,track, REF_VEL)
+class MPC():
+    
+    def __init__(self, N, M, Q, R):
+        """
+        """
+        self.state_len = N
+        self.action_len = M
+        self.state_cost = Q
+        self.action_cost = R
+        
+    def optimize_linearized_model(self, A, B, C, initial_state, target, time_horizon=10, Q=None, R=None, verbose=False):
+        """
+        Optimisation problem defined for the linearised model,
+        :param A: 
+        :param B:
+        :param C: 
+        :param initial_state:
+        :param Q:
+        :param R:
+        :param target:
+        :param time_horizon:
+        :param verbose:
+        :return:
+        """
+        
+        assert len(initial_state) == self.state_len
+        
+        if (Q == None or R==None):
+            Q = self.state_cost
+            R = self.action_cost
+        
+        # Create variables
+        x = opt.Variable((self.state_len, time_horizon + 1), name='states')
+        u = opt.Variable((self.action_len, time_horizon), name='actions')
 
-    #Prediction Horizon
-    for t in range(P.T):
+        # Loop through the entire time_horizon and append costs
+        cost_function = []
 
-        # Tracking Error
-        cost += cp.quad_form(x[:,t] - x_ref[:,t], Q)
+        for t in range(time_horizon):
 
-        # Actuation effort
-        cost += cp.quad_form(u[:,t], R)
+            _cost = opt.quad_form(target[:, t + 1] - x[:, t + 1], Q) +\
+                    opt.quad_form(u[:, t], R)
+            
+            _constraints = [x[:, t + 1] == A @ x[:, t] + B @ u[:, t] + C,
+                            u[0, t] >= -P.MAX_ACC, u[0, t] <= P.MAX_ACC,
+                            u[1, t] >= -P.MAX_STEER, u[1, t] <= P.MAX_STEER]
+                            #opt.norm(target[:, t + 1] - x[:, t + 1], 1) <= 0.1]
+            
+            # Actuation rate of change
+            if t < (time_horizon - 1):
+                _cost += opt.quad_form(u[:,t + 1] - u[:,t], R * 1)
+                _constraints += [opt.abs(u[0, t + 1] - u[0, t])/P.dt <= P.MAX_D_ACC]
+                _constraints += [opt.abs(u[1, t + 1] - u[1, t])/P.dt <= P.MAX_D_STEER]
+            
+            
+            if t == 0:
+                #_constraints += [opt.norm(target[:, time_horizon] - x[:, time_horizon], 1) <= 0.01,
+                #                x[:, 0] == initial_state]
+                _constraints += [x[:, 0] == initial_state]
+            
+            cost_function.append(opt.Problem(opt.Minimize(_cost), constraints=_constraints))
 
-        # Actuation rate of change
-        if t < (P.T - 1):
-            cost += cp.quad_form(u[:,t+1] - u[:,t], R_)
-            constr+= [cp.abs(u[0, t + 1] - u[0, t])/P.dt <= MAX_D_ACC]    #max acc rate of change
-            constr += [cp.abs(u[1, t + 1] - u[1, t])/P.dt <= MAX_D_STEER] #max steer rate of change
-
-        # Kinrmatics Constrains (Linearized model)
-        A,B,C = get_linear_model(x_bar[:,t], u_bar[:,t])
-        constr += [x[:,t+1] == A@x[:,t] + B@u[:,t] + C.flatten()]
-
-    # sums problem objectives and concatenates constraints.
-    constr += [x[:,0] == x_bar[:,0]]           #starting condition
-    constr += [x[2,:] <= MAX_SPEED]           #max speed
-    constr += [x[2,:] >= 0.0]                 #min_speed (not really needed)
-    constr += [cp.abs(u[0,:]) <= MAX_ACC]     #max acc
-    constr += [cp.abs(u[1,:]) <= MAX_STEER]   #max steer
-
-    # Solve
-    prob = cp.Problem(cp.Minimize(cost), constr)
-    prob.solve(solver=cp.OSQP, verbose=False)
-
-    if "optimal" not in prob.status:
-        print("WARN: No optimal solution")
-        return u_bar
-
-    #retrieved optimized U and assign to u_bar to linearize in next step
-    u_opt=np.vstack((np.array(u.value[0, :]).flatten(),
-                    (np.array(u.value[1, :]).flatten())))
-
-    return u_opt
+        # Add final cost
+        problem = sum(cost_function)
+        
+        # Minimize Problem
+        problem.solve(verbose=verbose, solver=opt.OSQP)
+        return x, u

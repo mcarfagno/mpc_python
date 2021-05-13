@@ -21,8 +21,9 @@ def compute_path_from_wp(start_xp, start_yp, step = 0.1):
         fx=interp1d(np.linspace(0,1,2),start_xp[idx:idx+2],kind=1)
         fy=interp1d(np.linspace(0,1,2),start_yp[idx:idx+2],kind=1)
         
-        final_xp=np.append(final_xp,fx(interp_range))
-        final_yp=np.append(final_yp,fy(interp_range))
+        # watch out to duplicate points!
+        final_xp=np.append(final_xp,fx(interp_range)[1:])
+        final_yp=np.append(final_yp,fy(interp_range)[1:])
     
     dx = np.append(0, np.diff(final_xp))
     dy = np.append(0, np.diff(final_yp))
@@ -59,42 +60,65 @@ def get_nn_idx(state,path):
 
     return target_idx
 
+def normalize_angle(angle):
+    """
+    Normalize an angle to [-pi, pi]
+    """
+    while angle > np.pi:
+        angle -= 2.0 * np.pi
+
+    while angle < -np.pi:
+        angle += 2.0 * np.pi
+
+    return angle
+
 def get_ref_trajectory(state, path, target_v):
     """
+    For each step in the time horizon
+    modified reference in robot frame
     """
-    xref = np.zeros((P.N, P.T + 1))
-    dref = np.zeros((1, P.T + 1))
+    xref = np.zeros((P.N, P.T+1))
+    dref = np.zeros((1, P.T+1))
     
     #sp = np.ones((1,T +1))*target_v #speed profile
     
     ncourse = path.shape[1]
 
     ind = get_nn_idx(state, path)
-
-    xref[0, 0] = path[0,ind] #X
-    xref[1, 0] = path[1,ind] #Y
-    xref[2, 0] = target_v    #sp[ind] #V
-    xref[3, 0] = path[2,ind] #Theta
-    dref[0, 0] = 0.0         # steer operational point should be 0
+    dx=path[0,ind] - state[0]
+    dy=path[1,ind] - state[1]
     
-    dl = P.path_tick # Waypoints spacing [m]
+    
+    xref[0, 0] = dx * np.cos(-state[3]) - dy * np.sin(-state[3]) #X
+    xref[1, 0] = dy * np.cos(-state[3]) + dx * np.sin(-state[3]) #Y
+    xref[2, 0] = target_v                                        #V
+    xref[3, 0] = normalize_angle(path[2,ind]- state[3])          #Theta
+    dref[0, 0] = 0.0                                             # steer operational point should be 0
+    
+    dl = 0.05 # Waypoints spacing [m]
     travel = 0.0
-
-    for i in range(P.T + 1):
+    
+    for i in range(1, P.T+1):
         travel += abs(target_v) * P.dt #current V or target V?
         dind = int(round(travel / dl))
-
+        
         if (ind + dind) < ncourse:
-            xref[0, i] = path[0,ind + dind]
-            xref[1, i] = path[1,ind + dind]
+            dx=path[0,ind + dind] - state[0]
+            dy=path[1,ind + dind] - state[1]
+            
+            xref[0, i] = dx * np.cos(-state[3]) - dy * np.sin(-state[3])
+            xref[1, i] = dy * np.cos(-state[3]) + dx * np.sin(-state[3])
             xref[2, i] = target_v #sp[ind + dind]
-            xref[3, i] = path[2,ind + dind]
+            xref[3, i] = normalize_angle(path[2,ind + dind] - state[3])
             dref[0, i] = 0.0
         else:
-            xref[0, i] = path[0,ncourse - 1]
-            xref[1, i] = path[1,ncourse - 1]
+            dx=path[0,ncourse - 1] - state[0]
+            dy=path[1,ncourse - 1] - state[1]
+            
+            xref[0, i] = dx * np.cos(-state[3]) - dy * np.sin(-state[3])
+            xref[1, i] = dy * np.cos(-state[3]) + dx * np.sin(-state[3])
             xref[2, i] = 0.0 #stop? #sp[ncourse - 1]
-            xref[3, i] = path[2,ncourse - 1]
+            xref[3, i] = normalize_angle(path[2,ncourse - 1] - state[3])
             dref[0, i] = 0.0
 
     return xref, dref
