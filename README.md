@@ -1,15 +1,31 @@
 # mpc_python
 
 I keep here my Jupyter notebooks on R&D on Model Predictive Control applyied to path-following problems in driverless vehicles. Includes also a Pybullet simulation to showcase the results. 
-This mainly uses **[CVXPY](https://www.cvxpy.org/)** as a framework.
+This mainly uses **[CVXPY](https://www.cvxpy.org/)** as a framework. This repo contains code from other projecs, check them out in thr special thanks section.
 
-## Notebooks Contents
+## Contents
 
-1. State space model derivation -> analytical and numerical derivaion
+### Python Scripts
 
-2. MPC -> implementation and testing various improvements
+The settings for tuning the MPC controller are in the **mpc_config** class.
 
-3. Obstacle Avoidance -> Using constrains to avaoid collisions
+Scripts for running the algorithm with/without the pybullet simulation, *these require some tidy up* :/
+```bash
+python mpc_pybullet_demo/mpc_demo_pybullet.py
+```
+
+A simpler demo wich does not use pybullet is also provided, this is useful for debugging
+```bash
+python mpc_pybullet_demo/mpc_demo_pybullet.py
+```
+
+### Jupyter Notebooks
+
+1. State space model derivation -> analytical and numerical derivaion of the model
+
+2. MPC -> implementation and testing of various tweaks/improvements
+
+3. Obstacle Avoidance -> Using halfplane constrains to avaoid track collisions -> Sill work in progress
 
 <!--nobody cares about this 
 ## About
@@ -65,11 +81,12 @@ python3 mpc_demo/mpc_demo_pybullet.py
 
 ## Requirements
 
+The dependencies can be installed using pip ():
 ```bash
 pip3 install --user --requirement requirements.txt
 ```
 
-## References & Special Thanks:
+## References & Special Thanks :star: :
 * [Prof. Borrelli - mpc papers and material](https://borrelli.me.berkeley.edu/pdfpub/IV_KinematicMPC_jason.pdf)
 * [AtsushiSakai - pythonrobotics](https://github.com/AtsushiSakai/PythonRobotics/)
 * [erwincoumans - pybullet](https://pybullet.org/wordpress/)
