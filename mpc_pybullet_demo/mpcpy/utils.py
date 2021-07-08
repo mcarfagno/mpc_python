@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.interpolate import interp1d
 
-from mpc_config import Params
+from .mpc_config import Params
 P=Params()
 
 def compute_path_from_wp(start_xp, start_yp, step = 0.1):

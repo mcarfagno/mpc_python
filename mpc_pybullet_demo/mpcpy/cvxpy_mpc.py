@@ -5,9 +5,9 @@ from scipy.integrate import odeint
 from scipy.interpolate import interp1d
 import cvxpy as opt
 
-from utils import *
+from .utils import *
 
-from mpc_config import Params
+from .mpc_config import Params
 P=Params()
 
 def get_linear_model_matrices(x_bar,u_bar):

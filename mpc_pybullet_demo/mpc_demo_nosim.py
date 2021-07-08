@@ -4,8 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import animation
 
-from utils import compute_path_from_wp
-from cvxpy_mpc import optimize
+from mpcpy.utils import compute_path_from_wp
+import mpcpy
 
 import sys
 import time
@@ -17,23 +17,32 @@ SIM_START_V=0.
 SIM_START_H=0.
 L=0.3
 
-from mpc_config import Params
-P=Params()
+P=mpcpy.Params()
 
 # Classes
-class MPC():
+class MPCSim():
 
     def __init__(self):
 
         # State for the robot mathematical model [x,y,heading]
-        self.state =  [SIM_START_X, SIM_START_Y, SIM_START_V, SIM_START_H]
+        self.state =  np.array([SIM_START_X, SIM_START_Y, SIM_START_V, SIM_START_H])
 
-        self.opt_u =  np.zeros((P.M,P.T))
-        self.opt_u[0,:] = 0.5 #m/ss
-        self.opt_u[1,:] = np.radians(0) #rad/s
+        #starting guess
+        self.action = np.zeros(P.M)
+        self.action[0] = P.MAX_ACC/2 #a
+        self.action[1] = 0.0      #delta
+       
+        self.opt_u = np.zeros((P.M,P.T))
+
+        # Cost Matrices
+        Q = np.diag([20,20,10,20]) #state error cost
+        Qf = np.diag([30,30,30,30]) #state final error cost
+        R = np.diag([10,10])       #input cost
+        R_ = np.diag([10,10])      #input rate of change cost
+        
+        self.mpc = mpcpy.MPC(P.N,P.M,Q,R)
 
         # Interpolated Path to follow given waypoints
-        #self.path = compute_path_from_wp([0,10,12,2,4,14],[0,0,2,10,12,12])
         self.path = compute_path_from_wp([0,3,4,6,10,12,13,13,6,1,0],
                                          [0,0,2,4,3,3,-1,-2,-6,-2,-2],P.path_tick)
 
@@ -79,40 +88,48 @@ class MPC():
         self.plot_sim()
         input("Press Enter to continue...")
         while 1:
-            if self.state is not None:
 
-                if np.sqrt((self.state[0]-self.path[0,-1])**2+(self.state[1]-self.path[1,-1])**2)<0.1:
-                    print("Success! Goal Reached")
-                    input("Press Enter to continue...")
-                    return
+            if np.sqrt((self.state[0]-self.path[0,-1])**2+(self.state[1]-self.path[1,-1])**2)<0.1:
+                print("Success! Goal Reached")
+                input("Press Enter to continue...")
+                return
 
-                #optimization loop
-                start=time.time()
-                self.opt_u = optimize(self.state,
-                                        self.opt_u,
-                                        self.path)
+            #optimization loop
+            #start=time.time()
+            
+            # State Matrices
+            A,B,C = mpcpy.get_linear_model_matrices(self.state, self.action)
+            
+            #TODO: check why taget does not update?
+            
+            #Get Reference_traj -> inputs are in worldframe
+            target, _ = mpcpy.get_ref_trajectory(self.state,
+                    self.path, 1.0)
 
-                # print("CVXPY Optimization Time: {:.4f}s".format(time.time()-start))
+            x_mpc, u_mpc = self.mpc.optimize_linearized_model(A, B, C, self.state, target, time_horizon=P.T, verbose=False)
+            
+            self.opt_u = np.vstack((np.array(u_mpc.value[0,:]).flatten(),
+                          (np.array(u_mpc.value[1,:]).flatten())))
 
-                self.update_sim(self.opt_u[0,1],self.opt_u[1,1])
-                self.predict_motion()
-                self.plot_sim()
+            self.action[:] = [u_mpc.value[0,1],u_mpc.value[1,1]]
+
+            # print("CVXPY Optimization Time: {:.4f}s".format(time.time()-start))
+
+            self.update_sim(self.action[0],self.action[1])
+            self.predict_motion()
+            self.plot_sim()
 
     def update_sim(self,acc,steer):
         '''
-        Updates state.
-
-        :param lin_v: float
-        :param ang_v: float
         '''
-
-        self.state[0] = self.state[0] +self.state[2]*np.cos(self.state[3])*P.dt
-        self.state[1] = self.state[1] +self.state[2]*np.sin(self.state[3])*P.dt
-        self.state[2] = self.state[2] +acc*P.dt
+        self.state[0] = self.state[0] + self.state[2]*np.cos(self.state[3])*P.dt
+        self.state[1] = self.state[1] + self.state[2]*np.sin(self.state[3])*P.dt
+        self.state[2] = self.state[2] + acc*P.dt
         self.state[3] = self.state[3] + self.state[2]*np.tan(steer)/L*P.dt
 
     def plot_sim(self):
-
+        '''
+        '''
         self.sim_time = self.sim_time+P.dt
         self.x_history.append(self.state[0])
         self.y_history.append(self.state[1])
@@ -208,7 +225,7 @@ def plot_car(x, y, yaw):
 
 
 def do_sim():
-    sim=MPC()
+    sim = MPCSim()
     try:
         sim.run()
     except Exception as e:

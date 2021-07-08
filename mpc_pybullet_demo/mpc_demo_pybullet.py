@@ -2,11 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import animation
 
-from utils import compute_path_from_wp
-from cvxpy_mpc import *
+from mpcpy.utils import compute_path_from_wp
+import mpcpy
 
-from mpc_config import Params
-P=Params()
+P = mpcpy.Params()
 
 import sys
 import time
@@ -130,7 +129,7 @@ def run_sim():
     R = np.diag([10,10])       #input cost
     R_ = np.diag([10,10])      #input rate of change cost
     
-    mpc = MPC(P.N,P.M,Q,R)
+    mpc = mpcpy.MPC(P.N,P.M,Q,R)
     x_history=[]
     y_history=[]
 
@@ -169,10 +168,10 @@ def run_sim():
         start=time.time()
         
         # State Matrices
-        A,B,C = get_linear_model_matrices(state, action)
+        A,B,C = mpcpy.get_linear_model_matrices(state, action)
     
         #Get Reference_traj -> inputs are in worldframe
-        target, _ = get_ref_trajectory(get_state(car),
+        target, _ = mpcpy.get_ref_trajectory(get_state(car),
                 path, 1.0)
     
         x_mpc, u_mpc = mpc.optimize_linearized_model(A, B, C, state, target, time_horizon=P.T, verbose=False)
