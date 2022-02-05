@@ -31,7 +31,7 @@ def set_ctrl(robotId,currVel,acceleration,steeringAngle):
     wheels = [8,15]
     maxForce = 50
 
-    targetVelocity = currVel + acceleration*P.dt
+    targetVelocity = currVel + acceleration*P.DT
     #targetVelocity=lastVel
     #print(targetVelocity)
 
@@ -158,10 +158,10 @@ def run_sim():
         state[3] = 0.0
 
         #add 1 timestep delay to input
-        state[0]=state[0]+state[2]*np.cos(state[3])*P.dt
-        state[1]=state[1]+state[2]*np.sin(state[3])*P.dt
-        state[2]=state[2]+action[0]*P.dt
-        state[3]=state[3]+action[0]*np.tan(action[1])/P.L*P.dt
+        state[0]=state[0]+state[2]*np.cos(state[3])*P.DT
+        state[1]=state[1]+state[2]*np.sin(state[3])*P.DT
+        state[2]=state[2]+action[0]*P.DT
+        state[3]=state[3]+action[0]*np.tan(action[1])/P.L*P.DT
 
        
     	#optimization loop
@@ -186,8 +186,8 @@ def run_sim():
 
         set_ctrl(car,state[2],action[0],action[1])
 
-        if P.dt-elapsed>0:
-            time.sleep(P.dt-elapsed)
+        if P.DT-elapsed>0:
+            time.sleep(P.DT-elapsed)
 
 if __name__ == '__main__':
     run_sim()

@@ -34,15 +34,15 @@ def get_linear_model_matrices(x_bar,u_bar):
     A[1,2] = st
     A[1,3] = v*ct
     A[3,2] = v*td/P.L
-    A_lin = np.eye(P.N)+P.dt*A
+    A_lin = np.eye(P.N)+P.DT*A
     
     B = np.zeros((P.N,P.M))
     B[2,0]=1
     B[3,1]=v/(P.L*cd**2)
-    B_lin=P.dt*B
+    B_lin=P.DT*B
     
     f_xu=np.array([v*ct, v*st, a, v*td/P.L]).reshape(P.N,1)
-    C_lin = P.dt*(f_xu - np.dot(A, x_bar.reshape(P.N,1)) - np.dot(B, u_bar.reshape(P.M,1))).flatten()
+    C_lin = P.DT*(f_xu - np.dot(A, x_bar.reshape(P.N,1)) - np.dot(B, u_bar.reshape(P.M,1))).flatten()
     
     #return np.round(A_lin,6), np.round(B_lin,6), np.round(C_lin,6)
     return A_lin, B_lin, C_lin
@@ -98,8 +98,8 @@ class MPC():
             # Actuation rate of change
             if t < (time_horizon - 1):
                 _cost += opt.quad_form(u[:,t + 1] - u[:,t], R * 1)
-                _constraints += [opt.abs(u[0, t + 1] - u[0, t])/P.dt <= P.MAX_D_ACC]
-                _constraints += [opt.abs(u[1, t + 1] - u[1, t])/P.dt <= P.MAX_D_STEER]
+                _constraints += [opt.abs(u[0, t + 1] - u[0, t])/P.DT <= P.MAX_D_ACC]
+                _constraints += [opt.abs(u[1, t + 1] - u[1, t])/P.DT <= P.MAX_D_STEER]
             
             
             if t == 0:
