@@ -1,23 +1,27 @@
 # mpc_python
 
 I keep here my Jupyter notebooks on R&D on Model Predictive Control applyied to path-following problems in driverless vehicles. Includes also a Pybullet simulation to showcase the results. 
-This mainly uses **[CVXPY](https://www.cvxpy.org/)** as a framework. This repo contains code from other projecs, check them out in thr special thanks section.
+This mainly uses **[CVXPY](https://www.cvxpy.org/)** as a framework. This repo contains code from other projecs, check them out in the special thanks section.
 
 ## Contents
 
-### Python Scripts
+### Usage
 
-The settings for tuning the MPC controller are in the **mpc_config** class.
+From within the `mpc_pybullet_demo` directory:
 
-Scripts for running the algorithm with/without the pybullet simulation, *these require some tidy up* :/
+* To run the pybullet demo:
 ```bash
-python mpc_pybullet_demo/mpc_demo_pybullet.py
+python3 mpc_demo_pybullet.py
 ```
 
-A simpler demo wich does not use pybullet is also provided, this is useful for debugging
+* To run the simulation-less demo (simpler demo that does not use pybullet, useful for debugging):
 ```bash
-python mpc_pybullet_demo/mpc_demo_pybullet.py
+python3 mpc_demo_pybullet.py
 ```
+
+In both cases the script will promt the user for `enter` before starting the demo.
+
+The settings for tuning the MPC controller are in the **[mpc_config](./mpc_pybullet_demo/mpcpy/mpc_config.py)** class.
 
 ### Jupyter Notebooks
 
@@ -25,7 +29,7 @@ python mpc_pybullet_demo/mpc_demo_pybullet.py
 
 2. MPC -> implementation and testing of various tweaks/improvements
 
-3. Obstacle Avoidance -> Using halfplane constrains to avaoid track collisions -> Sill work in progress
+3. Obstacle Avoidance -> Using halfplane constrains to avaoid track collisions -> Sill **work in progress**!
 
 <!--nobody cares about this 
 ## About
@@ -55,7 +59,7 @@ The inputs **(u)** of the model are:
 * **delta** steering angle of the robot
 -->
 
-## Results
+### Results
 
 Racing car model is from: *https://github.com/erwincoumans/pybullet_robots*.
 
@@ -67,21 +71,16 @@ Results:
 
 ![](img/demo.gif)
 
-To run the pybullet demo:
 
+### Requirements
+
+The environment can be repoduced via [conda](https://www.anaconda.com/products/distribution):
 ```bash
-python3 mpc_demo/mpc_demo_pybullet.py
+conda env create -f env.yml
+conda activate simulation
 ```
 
-To run the simulation-less demo:
-
-```bash
-python3 mpc_demo/mpc_demo_pybullet.py
-```
-
-## Requirements
-
-The dependencies can be installed using pip ():
+The dependencies for just the python scripts can also be installed using `pip`:
 ```bash
 pip3 install --user --requirement requirements.txt
 ```

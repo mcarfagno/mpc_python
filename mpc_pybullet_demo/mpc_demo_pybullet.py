@@ -227,7 +227,7 @@ def run_sim():
     y_history = []
 
     time.sleep(0.5)
-    input("Press Enter to continue...")
+    input("\033[92m Press Enter to continue... \033[0m")
 
     while 1:
 
