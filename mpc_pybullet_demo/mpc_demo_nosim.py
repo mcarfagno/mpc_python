@@ -109,9 +109,7 @@ class MPCSim:
             # optimization loop
             # start=time.time()
             # dynamycs w.r.t robot frame
-            curr_state = np.array(
-                [0, 0, self.state[2], 0]
-            )
+            curr_state = np.array([0, 0, self.state[2], 0])
             # State Matrices
             A, B, C = mpcpy.get_linear_model_matrices(curr_state, self.action)
             # Get Reference_traj -> inputs are in worldframe
@@ -139,6 +137,7 @@ class MPCSim:
             self.predict([self.action[0], self.action[1]])
             self.preview(x_mpc.value)
             self.plot_sim()
+
     def predict(self, u):
         def kinematics_model(x, t, u):
             dxdt = x[2] * np.cos(x[3])
