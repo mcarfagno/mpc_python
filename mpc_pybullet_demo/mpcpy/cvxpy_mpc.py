@@ -132,4 +132,4 @@ class MPC:
 
         prob = opt.Problem(opt.Minimize(cost), constr)
         solution = prob.solve(solver=opt.OSQP, warm_start=True, verbose=False)
-        return x, u
+        return u[:, 0].value

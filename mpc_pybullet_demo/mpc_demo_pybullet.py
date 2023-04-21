@@ -30,15 +30,12 @@ def get_state(robotId):
 
 
 def set_ctrl(robotId, currVel, acceleration, steeringAngle):
-
     gearRatio = 1.0 / 21
     steering = [0, 2]
     wheels = [8, 15]
     maxForce = 50
 
     targetVelocity = currVel + acceleration * P.DT
-    # targetVelocity=lastVel
-    # print(targetVelocity)
 
     for wheel in wheels:
         p.setJointMotorControl2(
@@ -230,7 +227,6 @@ def run_sim():
     input("\033[92m Press Enter to continue... \033[0m")
 
     while 1:
-
         state = get_state(car)
         x_history.append(state[0])
         y_history.append(state[1])
@@ -267,19 +263,15 @@ def run_sim():
         # Get Reference_traj -> inputs are in worldframe
         target, _ = mpcpy.get_ref_trajectory(get_state(car), path, 1.0)
 
-        x_mpc, u_mpc = mpc.optimize_linearized_model(
+        # MPC step
+        acc, steer = mpc.optimize_linearized_model(
             A, B, C, state, target, time_horizon=P.T, verbose=False
         )
-
-        # action = np.vstack((np.array(u_mpc.value[0,:]).flatten(),
-        #              (np.array(u_mpc.value[1,:]).flatten())))
-
-        action[:] = [u_mpc.value[0, 1], u_mpc.value[1, 1]]
 
         elapsed = time.time() - start
         print("CVXPY Optimization Time: {:.4f}s".format(elapsed))
 
-        set_ctrl(car, state[2], action[0], action[1])
+        set_ctrl(car, state[2], acc, steer)
 
         if P.DT - elapsed > 0:
             time.sleep(P.DT - elapsed)
