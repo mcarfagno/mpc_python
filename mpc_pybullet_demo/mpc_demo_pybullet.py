@@ -214,16 +214,15 @@ def run_sim():
     action[1] = 0.0  # delta
 
     # Cost Matrices
-    Q = np.diag([20, 20, 10, 20])  # state error cost
-    Qf = np.diag([30, 30, 30, 30])  # state final error cost
-    R = np.diag([10, 10])  # input cost
-    R_ = np.diag([10, 10])  # input rate of change cost
+    Q = [20, 20, 10, 20]  # state error cost [x,y,v,yaw]
+    Qf = [30, 30, 30, 30]  # state error cost at final timestep [x,y,v,yaw]
+    R = [10, 10]  # input cost [acc ,steer]
+    P = [10, 10]  # input rate of change cost [acc ,steer]
 
-    mpc = mpcpy.MPC(P.N, P.M, Q, R)
+    mpc = mpcpy.MPC(Q, Qf, R, P)
     x_history = []
     y_history = []
 
-    time.sleep(0.5)
     input("\033[92m Press Enter to continue... \033[0m")
 
     while 1:
@@ -244,27 +243,29 @@ def run_sim():
             p.disconnect()
             return
 
-        # for MPC car ref frame is used
-        state[0:2] = 0.0
-        state[3] = 0.0
+        # for MPC base link frame is used:
+        # so x, y, yaw are 0.0, but speed is the same
+        ego_state = [0.0, 0.0, state[2], 0.0]
 
-        # add 1 timestep delay to input
-        state[0] = state[0] + state[2] * np.cos(state[3]) * P.DT
-        state[1] = state[1] + state[2] * np.sin(state[3]) * P.DT
-        state[2] = state[2] + action[0] * P.DT
-        state[3] = state[3] + action[0] * np.tan(action[1]) / P.L * P.DT
+        # to account for MPC latency
+        # we simulate one timestep delay
+        ego_state[0] = ego_state[0] + ego_state[2] * np.cos(ego_state[3]) * P.DT
+        ego_state[1] = ego_state[1] + ego_state[2] * np.sin(ego_state[3]) * P.DT
+        ego_state[2] = ego_state[2] + action[0] * P.DT
+        ego_state[3] = ego_state[3] + action[0] * np.tan(action[1]) / P.L * P.DT
 
         # optimization loop
         start = time.time()
 
         # State Matrices
-        A, B, C = mpcpy.get_linear_model_matrices(state, action)
+        A, B, C = mpcpy.get_linear_model_matrices(ego_state, action)
 
-        # Get Reference_traj -> inputs are in worldframe
-        target, _ = mpcpy.get_ref_trajectory(get_state(car), path, 1.0)
+        # Get Reference_traj
+        # NOTE: inputs are in world frame
+        target, _ = mpcpy.get_ref_trajectory(ego_state, path, P.TARGET_SPEED)
 
         # MPC step
-        acc, steer = mpc.optimize_linearized_model(
+        action = mpc.optimize_linearized_model(
             A, B, C, state, target, time_horizon=P.T, verbose=False
         )
 

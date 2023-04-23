@@ -57,12 +57,29 @@ def get_linear_model_matrices(x_bar, u_bar):
 
 
 class MPC:
-    def __init__(self, N, M, Q, R):
+    def __init__(self, state_cost, final_state_cost, input_cost, input_rate_cost):
         """ """
-        self.state_len = N
-        self.action_len = M
-        self.state_cost = Q
-        self.action_cost = R
+
+        nx = P.N  # number of state vars
+        nu = P.M  # umber of input/control vars
+
+        if len(state_cost) != nx:
+            raise ValueError(f"State Error cost matrix shuld be of size {nx}")
+        if len(final_state_cost) != nx:
+            raise ValueError(f"End State Error cost matrix shuld be of size {nx}")
+        if len(input_cost) != nu:
+            raise ValueError(f"Control Effort cost matrix shuld be of size {nu}")
+        if len(input_rate_cost) != nu:
+            raise ValueError(
+                f"Control Effort Difference cost matrix shuld be of size {nu}"
+            )
+
+        self.dt = P.DT
+        self.control_horizon = P.T
+        self.Q = np.diag(state_cost)
+        self.Qf = np.diag(final_state_cost)
+        self.R = np.diag(input_cost)
+        self.P = np.diag(input_rate_cost)
         self.u_bounds = np.array([P.MAX_ACC, P.MAX_STEER])
         self.du_bounds = np.array([P.MAX_D_ACC, P.MAX_D_STEER])
 
@@ -73,9 +90,6 @@ class MPC:
         C,
         initial_state,
         target,
-        control_horizon=10,
-        Q=None,
-        R=None,
         verbose=False,
     ):
         """
@@ -84,19 +98,12 @@ class MPC:
         :param B:
         :param C:
         :param initial_state:
-        :param Q:
-        :param R:
         :param target:
-        :param control_horizon:
         :param verbose:
         :return:
         """
 
         assert len(initial_state) == self.state_len
-
-        if Q == None or R == None:
-            Q = self.state_cost
-            R = self.action_cost
 
         # Create variables
         x = opt.Variable((self.state_len, control_horizon + 1), name="states")
@@ -104,9 +111,9 @@ class MPC:
         cost = 0
         constr = []
 
-        for k in range(control_horizon):
-            cost += opt.quad_form(target[:, k] - x[:, k], Q)
-            cost += opt.quad_form(u[:, k], R)
+        for k in range(self.control_horizon):
+            cost += opt.quad_form(target[:, k] - x[:, k], self.Q)
+            cost += opt.quad_form(u[:, k], self.R)
 
             # Actuation rate of change
             if k < (control_horizon - 1):
@@ -117,11 +124,15 @@ class MPC:
 
             # Actuation rate of change limit
             if t < (control_horizon - 1):
-                constr += [opt.abs(u[0, k + 1] - u[0, k]) / P.DT <= self.du_bounds[0]]
-                constr += [opt.abs(u[1, k + 1] - u[1, k]) / P.DT <= self.du_bounds[1]]
+                constr += [
+                    opt.abs(u[0, k + 1] - u[0, k]) / self.dt <= self.du_bounds[0]
+                ]
+                constr += [
+                    opt.abs(u[1, k + 1] - u[1, k]) / self.dt <= self.du_bounds[1]
+                ]
 
         # Final Point tracking
-        # cost += opt.quad_form(x[:, -1] - target[:,-1], Qf)
+        cost += opt.quad_form(x[:, -1] - target[:, -1], self.Qf)
 
         # initial state
         constr += [x[:, 0] == initial_state]

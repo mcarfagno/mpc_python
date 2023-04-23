@@ -9,6 +9,7 @@ class Params:
         self.DT = 0.2  # discretization step
         self.path_tick = 0.05
         self.L = 0.3  # vehicle wheelbase
+        self.TARGET_SPEED = 1.0  # m/s
         self.MAX_SPEED = 1.5  # m/s
         self.MAX_ACC = 1.0  # m/ss
         self.MAX_D_ACC = 1.0  # m/sss
