@@ -38,7 +38,7 @@ class MPCSim:
         self.K = int(params.T / params.DT)
         self.opt_u = np.zeros((params.M, self.K))
 
-        # Cost Matrices
+        # Weights for Cost Matrices
         Q = [20, 20, 10, 20]  # state error cost
         Qf = [30, 30, 30, 30]  # state final error cost
         R = [10, 10]  # input cost
