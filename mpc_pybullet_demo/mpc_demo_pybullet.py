@@ -5,11 +5,11 @@ from matplotlib import animation
 from mpcpy.utils import compute_path_from_wp
 import mpcpy
 
-P = mpcpy.Params()
+params = mpcpy.Params()
 
 import sys
 import time
-
+import pathlib
 import pybullet as p
 import time
 
@@ -30,15 +30,12 @@ def get_state(robotId):
 
 
 def set_ctrl(robotId, currVel, acceleration, steeringAngle):
-
     gearRatio = 1.0 / 21
     steering = [0, 2]
     wheels = [8, 15]
     maxForce = 50
 
-    targetVelocity = currVel + acceleration * P.DT
-    # targetVelocity=lastVel
-    # print(targetVelocity)
+    targetVelocity = currVel + acceleration * params.DT
 
     for wheel in wheels:
         p.setJointMotorControl2(
@@ -95,10 +92,12 @@ def run_sim():
     p.setTimeStep(1.0 / 120.0)
     p.setRealTimeSimulation(useRealTimeSim)  # either this
 
-    plane = p.loadURDF("racecar/plane.urdf")
-    # track = p.loadSDF("racecar/f10_racecar/meshes/barca_track.sdf", globalScaling=1)
+    file_path = pathlib.Path(__file__).parent.resolve()
+    plane = p.loadURDF(str(file_path) + "/racecar/plane.urdf")
+    car = p.loadURDF(
+        str(file_path) + "/racecar/f10_racecar/racecar_differential.urdf", [0, 0.3, 0.3]
+    )
 
-    car = p.loadURDF("racecar/f10_racecar/racecar_differential.urdf", [0, 0.3, 0.3])
     for wheel in range(p.getNumJoints(car)):
         # print("joint[",wheel,"]=", p.getJointInfo(car,wheel))
         p.setJointMotorControl2(
@@ -205,32 +204,30 @@ def run_sim():
     path = compute_path_from_wp(
         [0, 3, 4, 6, 10, 11, 12, 6, 1, 0],
         [0, 0, 2, 4, 3, 3, -1, -6, -2, -2],
-        P.path_tick,
+        0.05,
     )
 
     for x_, y_ in zip(path[0, :], path[1, :]):
         p.addUserDebugLine([x_, y_, 0], [x_, y_, 0.33], [0, 0, 1])
 
     # starting guess
-    action = np.zeros(P.M)
-    action[0] = P.MAX_ACC / 2  # a
+    action = np.zeros(params.M)
+    action[0] = params.MAX_ACC / 2  # a
     action[1] = 0.0  # delta
 
     # Cost Matrices
-    Q = np.diag([20, 20, 10, 20])  # state error cost
-    Qf = np.diag([30, 30, 30, 30])  # state final error cost
-    R = np.diag([10, 10])  # input cost
-    R_ = np.diag([10, 10])  # input rate of change cost
+    Q = [20, 20, 10, 20]  # state error cost [x,y,v,yaw]
+    Qf = [30, 30, 30, 30]  # state error cost at final timestep [x,y,v,yaw]
+    R = [10, 10]  # input cost [acc ,steer]
+    P = [10, 10]  # input rate of change cost [acc ,steer]
 
-    mpc = mpcpy.MPC(P.N, P.M, Q, R)
+    mpc = mpcpy.MPC(Q, Qf, R, P)
     x_history = []
     y_history = []
 
-    time.sleep(0.5)
     input("\033[92m Press Enter to continue... \033[0m")
 
     while 1:
-
         state = get_state(car)
         x_history.append(state[0])
         y_history.append(state[1])
@@ -248,41 +245,43 @@ def run_sim():
             p.disconnect()
             return
 
-        # for MPC car ref frame is used
-        state[0:2] = 0.0
-        state[3] = 0.0
+        # Get Reference_traj
+        # NOTE: inputs are in world frame
+        target, _ = mpcpy.get_ref_trajectory(state, path, params.TARGET_SPEED)
 
-        # add 1 timestep delay to input
-        state[0] = state[0] + state[2] * np.cos(state[3]) * P.DT
-        state[1] = state[1] + state[2] * np.sin(state[3]) * P.DT
-        state[2] = state[2] + action[0] * P.DT
-        state[3] = state[3] + action[0] * np.tan(action[1]) / P.L * P.DT
+        # for MPC base link frame is used:
+        # so x, y, yaw are 0.0, but speed is the same
+        ego_state = np.array([0.0, 0.0, state[2], 0.0])
+
+        # to account for MPC latency
+        # simulate one timestep actuation delay
+        ego_state[0] = ego_state[0] + ego_state[2] * np.cos(ego_state[3]) * params.DT
+        ego_state[1] = ego_state[1] + ego_state[2] * np.sin(ego_state[3]) * params.DT
+        ego_state[2] = ego_state[2] + action[0] * params.DT
+        ego_state[3] = (
+            ego_state[3] + action[0] * np.tan(action[1]) / params.L * params.DT
+        )
+
+        # State Matrices
+        A, B, C = mpcpy.get_linear_model_matrices(ego_state, action)
 
         # optimization loop
         start = time.time()
 
-        # State Matrices
-        A, B, C = mpcpy.get_linear_model_matrices(state, action)
-
-        # Get Reference_traj -> inputs are in worldframe
-        target, _ = mpcpy.get_ref_trajectory(get_state(car), path, 1.0)
-
-        x_mpc, u_mpc = mpc.optimize_linearized_model(
-            A, B, C, state, target, time_horizon=P.T, verbose=False
+        # MPC step
+        _, u_mpc = mpc.optimize_linearized_model(
+            A, B, C, ego_state, target, verbose=False
         )
-
-        # action = np.vstack((np.array(u_mpc.value[0,:]).flatten(),
-        #              (np.array(u_mpc.value[1,:]).flatten())))
-
-        action[:] = [u_mpc.value[0, 1], u_mpc.value[1, 1]]
+        action[0] = u_mpc.value[0, 0]
+        action[1] = u_mpc.value[1, 0]
 
         elapsed = time.time() - start
         print("CVXPY Optimization Time: {:.4f}s".format(elapsed))
 
         set_ctrl(car, state[2], action[0], action[1])
 
-        if P.DT - elapsed > 0:
-            time.sleep(P.DT - elapsed)
+        if params.DT - elapsed > 0:
+            time.sleep(params.DT - elapsed)
 
 
 if __name__ == "__main__":

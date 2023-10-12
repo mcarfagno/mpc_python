@@ -66,14 +66,14 @@ def normalize_angle(angle):
     return angle
 
 
-def get_ref_trajectory(state, path, target_v, dl=0.1):
+def get_ref_trajectory(state, path, target_v):
     """
     For each step in the time horizon
     modified reference in robot frame
     """
-    xref = np.zeros((P.N, P.T + 1))
-    dref = np.zeros((1, P.T + 1))
-    # sp = np.ones((1,T +1))*target_v #speed profile
+    K = int(P.T / P.DT)
+    xref = np.zeros((P.N, K + 1))
+    dref = np.zeros((1, K + 1))
     ncourse = path.shape[1]
     ind = get_nn_idx(state, path)
     dx = path[0, ind] - state[0]
@@ -84,7 +84,8 @@ def get_ref_trajectory(state, path, target_v, dl=0.1):
     xref[3, 0] = normalize_angle(path[2, ind] - state[3])  # Theta
     dref[0, 0] = 0.0  # Steer operational point should be 0
     travel = 0.0
-    for i in range(1, P.T + 1):
+    dl = np.hypot(path[0, 1] - path[0, 0], path[1, 1] - path[1, 0])
+    for i in range(1, K + 1):
         travel += abs(target_v) * P.DT
         dind = int(round(travel / dl))
         if (ind + dind) < ncourse:

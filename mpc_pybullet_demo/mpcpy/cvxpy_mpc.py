@@ -57,12 +57,31 @@ def get_linear_model_matrices(x_bar, u_bar):
 
 
 class MPC:
-    def __init__(self, N, M, Q, R):
+    def __init__(self, state_cost, final_state_cost, input_cost, input_rate_cost):
         """ """
-        self.state_len = N
-        self.action_len = M
-        self.state_cost = Q
-        self.action_cost = R
+
+        self.nx = P.N  # number of state vars
+        self.nu = P.M  # umber of input/control vars
+
+        if len(state_cost) != self.nx:
+            raise ValueError(f"State Error cost matrix shuld be of size {self.nx}")
+        if len(final_state_cost) != self.nx:
+            raise ValueError(f"End State Error cost matrix shuld be of size {self.nx}")
+        if len(input_cost) != self.nu:
+            raise ValueError(f"Control Effort cost matrix shuld be of size {self.nu}")
+        if len(input_rate_cost) != self.nu:
+            raise ValueError(
+                f"Control Effort Difference cost matrix shuld be of size {self.nu}"
+            )
+
+        self.dt = P.DT
+        self.control_horizon = int(P.T / P.DT)
+        self.Q = np.diag(state_cost)
+        self.Qf = np.diag(final_state_cost)
+        self.R = np.diag(input_cost)
+        self.P = np.diag(input_rate_cost)
+        self.u_bounds = np.array([P.MAX_ACC, P.MAX_STEER])
+        self.du_bounds = np.array([P.MAX_D_ACC, P.MAX_D_STEER])
 
     def optimize_linearized_model(
         self,
@@ -71,9 +90,6 @@ class MPC:
         C,
         initial_state,
         target,
-        time_horizon=10,
-        Q=None,
-        R=None,
         verbose=False,
     ):
         """
@@ -82,60 +98,49 @@ class MPC:
         :param B:
         :param C:
         :param initial_state:
-        :param Q:
-        :param R:
         :param target:
-        :param time_horizon:
         :param verbose:
         :return:
         """
 
-        assert len(initial_state) == self.state_len
-
-        if Q == None or R == None:
-            Q = self.state_cost
-            R = self.action_cost
+        assert len(initial_state) == self.nx
 
         # Create variables
-        x = opt.Variable((self.state_len, time_horizon + 1), name="states")
-        u = opt.Variable((self.action_len, time_horizon), name="actions")
+        x = opt.Variable((self.nx, self.control_horizon + 1), name="states")
+        u = opt.Variable((self.nu, self.control_horizon), name="actions")
+        cost = 0
+        constr = []
 
-        # Loop through the entire time_horizon and append costs
-        cost_function = []
-
-        for t in range(time_horizon):
-
-            _cost = opt.quad_form(target[:, t + 1] - x[:, t + 1], Q) + opt.quad_form(
-                u[:, t], R
-            )
-
-            _constraints = [
-                x[:, t + 1] == A @ x[:, t] + B @ u[:, t] + C,
-                u[0, t] >= -P.MAX_ACC,
-                u[0, t] <= P.MAX_ACC,
-                u[1, t] >= -P.MAX_STEER,
-                u[1, t] <= P.MAX_STEER,
-            ]
-            # opt.norm(target[:, t + 1] - x[:, t + 1], 1) <= 0.1]
+        for k in range(self.control_horizon):
+            cost += opt.quad_form(target[:, k] - x[:, k + 1], self.Q)
+            cost += opt.quad_form(u[:, k], self.R)
 
             # Actuation rate of change
-            if t < (time_horizon - 1):
-                _cost += opt.quad_form(u[:, t + 1] - u[:, t], R * 1)
-                _constraints += [opt.abs(u[0, t + 1] - u[0, t]) / P.DT <= P.MAX_D_ACC]
-                _constraints += [opt.abs(u[1, t + 1] - u[1, t]) / P.DT <= P.MAX_D_STEER]
+            if k < (self.control_horizon - 1):
+                cost += opt.quad_form(u[:, k + 1] - u[:, k], self.P)
 
-            if t == 0:
-                # _constraints += [opt.norm(target[:, time_horizon] - x[:, time_horizon], 1) <= 0.01,
-                #                x[:, 0] == initial_state]
-                _constraints += [x[:, 0] == initial_state]
+            # Kinematics Constrains
+            constr += [x[:, k + 1] == A @ x[:, k] + B @ u[:, k] + C]
 
-            cost_function.append(
-                opt.Problem(opt.Minimize(_cost), constraints=_constraints)
-            )
+            # Actuation rate of change limit
+            if k < (self.control_horizon - 1):
+                constr += [
+                    opt.abs(u[0, k + 1] - u[0, k]) / self.dt <= self.du_bounds[0]
+                ]
+                constr += [
+                    opt.abs(u[1, k + 1] - u[1, k]) / self.dt <= self.du_bounds[1]
+                ]
 
-        # Add final cost
-        problem = sum(cost_function)
+        # Final Point tracking
+        cost += opt.quad_form(x[:, -1] - target[:, -1], self.Qf)
 
-        # Minimize Problem
-        problem.solve(verbose=verbose, solver=opt.OSQP)
+        # initial state
+        constr += [x[:, 0] == initial_state]
+
+        # actuation magnitude
+        constr += [opt.abs(u[:, 0]) <= self.u_bounds[0]]
+        constr += [opt.abs(u[:, 1]) <= self.u_bounds[1]]
+
+        prob = opt.Problem(opt.Minimize(cost), constr)
+        solution = prob.solve(solver=opt.OSQP, warm_start=True, verbose=False)
         return x, u
