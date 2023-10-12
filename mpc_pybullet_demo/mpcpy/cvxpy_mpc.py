@@ -60,22 +60,22 @@ class MPC:
     def __init__(self, state_cost, final_state_cost, input_cost, input_rate_cost):
         """ """
 
-        nx = P.N  # number of state vars
-        nu = P.M  # umber of input/control vars
+        self.nx = P.N  # number of state vars
+        self.nu = P.M  # umber of input/control vars
 
-        if len(state_cost) != nx:
-            raise ValueError(f"State Error cost matrix shuld be of size {nx}")
-        if len(final_state_cost) != nx:
-            raise ValueError(f"End State Error cost matrix shuld be of size {nx}")
-        if len(input_cost) != nu:
-            raise ValueError(f"Control Effort cost matrix shuld be of size {nu}")
-        if len(input_rate_cost) != nu:
+        if len(state_cost) != self.nx:
+            raise ValueError(f"State Error cost matrix shuld be of size {self.nx}")
+        if len(final_state_cost) != self.nx:
+            raise ValueError(f"End State Error cost matrix shuld be of size {self.nx}")
+        if len(input_cost) != self.nu:
+            raise ValueError(f"Control Effort cost matrix shuld be of size {self.nu}")
+        if len(input_rate_cost) != self.nu:
             raise ValueError(
-                f"Control Effort Difference cost matrix shuld be of size {nu}"
+                f"Control Effort Difference cost matrix shuld be of size {self.nu}"
             )
 
         self.dt = P.DT
-        self.control_horizon = P.T / P.DT
+        self.control_horizon = int(P.T / P.DT)
         self.Q = np.diag(state_cost)
         self.Qf = np.diag(final_state_cost)
         self.R = np.diag(input_cost)
@@ -103,11 +103,11 @@ class MPC:
         :return:
         """
 
-        assert len(initial_state) == self.state_len
+        assert len(initial_state) == self.nx
 
         # Create variables
-        x = opt.Variable((self.state_len, control_horizon + 1), name="states")
-        u = opt.Variable((self.action_len, control_horizon), name="actions")
+        x = opt.Variable((self.nx, self.control_horizon + 1), name="states")
+        u = opt.Variable((self.nu, self.control_horizon), name="actions")
         cost = 0
         constr = []
 
@@ -143,4 +143,4 @@ class MPC:
 
         prob = opt.Problem(opt.Minimize(cost), constr)
         solution = prob.solve(solver=opt.OSQP, warm_start=True, verbose=False)
-        return u[:, 0].value
+        return x, u
