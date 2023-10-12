@@ -75,7 +75,7 @@ class MPC:
             )
 
         self.dt = P.DT
-        self.control_horizon = P.T
+        self.control_horizon = P.T / P.DT
         self.Q = np.diag(state_cost)
         self.Qf = np.diag(final_state_cost)
         self.R = np.diag(input_cost)
@@ -112,18 +112,18 @@ class MPC:
         constr = []
 
         for k in range(self.control_horizon):
-            cost += opt.quad_form(target[:, k] - x[:, k], self.Q)
+            cost += opt.quad_form(target[:, k] - x[:, k + 1], self.Q)
             cost += opt.quad_form(u[:, k], self.R)
 
             # Actuation rate of change
-            if k < (control_horizon - 1):
+            if k < (self.control_horizon - 1):
                 cost += opt.quad_form(u[:, k + 1] - u[:, k], self.P)
 
             # Kinematics Constrains
             constr += [x[:, k + 1] == A @ x[:, k] + B @ u[:, k] + C]
 
             # Actuation rate of change limit
-            if t < (control_horizon - 1):
+            if k < (self.control_horizon - 1):
                 constr += [
                     opt.abs(u[0, k + 1] - u[0, k]) / self.dt <= self.du_bounds[0]
                 ]
