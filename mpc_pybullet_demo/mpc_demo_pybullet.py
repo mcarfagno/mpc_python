@@ -5,7 +5,7 @@ from matplotlib import animation
 from mpcpy.utils import compute_path_from_wp
 import mpcpy
 
-P = mpcpy.Params()
+params = mpcpy.Params()
 
 import sys
 import time
@@ -35,7 +35,7 @@ def set_ctrl(robotId, currVel, acceleration, steeringAngle):
     wheels = [8, 15]
     maxForce = 50
 
-    targetVelocity = currVel + acceleration * P.DT
+    targetVelocity = currVel + acceleration * params.DT
 
     for wheel in wheels:
         p.setJointMotorControl2(
@@ -92,6 +92,7 @@ def run_sim():
     p.setTimeStep(1.0 / 120.0)
     p.setRealTimeSimulation(useRealTimeSim)  # either this
 
+    # TODO(): fix path
     plane = p.loadURDF("racecar/plane.urdf")
     # track = p.loadSDF("racecar/f10_racecar/meshes/barca_track.sdf", globalScaling=1)
 
@@ -202,15 +203,15 @@ def run_sim():
     path = compute_path_from_wp(
         [0, 3, 4, 6, 10, 11, 12, 6, 1, 0],
         [0, 0, 2, 4, 3, 3, -1, -6, -2, -2],
-        P.path_tick,
+        0.05,
     )
 
     for x_, y_ in zip(path[0, :], path[1, :]):
         p.addUserDebugLine([x_, y_, 0], [x_, y_, 0.33], [0, 0, 1])
 
     # starting guess
-    action = np.zeros(P.M)
-    action[0] = P.MAX_ACC / 2  # a
+    action = np.zeros(params.M)
+    action[0] = params.MAX_ACC / 2  # a
     action[1] = 0.0  # delta
 
     # Cost Matrices
@@ -243,39 +244,43 @@ def run_sim():
             p.disconnect()
             return
 
+        # Get Reference_traj
+        # NOTE: inputs are in world frame
+        target, _ = mpcpy.get_ref_trajectory(state, path, params.TARGET_SPEED)
+
         # for MPC base link frame is used:
         # so x, y, yaw are 0.0, but speed is the same
-        ego_state = [0.0, 0.0, state[2], 0.0]
+        ego_state = np.array([0.0, 0.0, state[2], 0.0])
 
         # to account for MPC latency
-        # we simulate one timestep delay
-        ego_state[0] = ego_state[0] + ego_state[2] * np.cos(ego_state[3]) * P.DT
-        ego_state[1] = ego_state[1] + ego_state[2] * np.sin(ego_state[3]) * P.DT
-        ego_state[2] = ego_state[2] + action[0] * P.DT
-        ego_state[3] = ego_state[3] + action[0] * np.tan(action[1]) / P.L * P.DT
-
-        # optimization loop
-        start = time.time()
+        # simulate one timestep actuation delay
+        ego_state[0] = ego_state[0] + ego_state[2] * np.cos(ego_state[3]) * params.DT
+        ego_state[1] = ego_state[1] + ego_state[2] * np.sin(ego_state[3]) * params.DT
+        ego_state[2] = ego_state[2] + action[0] * params.DT
+        ego_state[3] = (
+            ego_state[3] + action[0] * np.tan(action[1]) / params.L * params.DT
+        )
 
         # State Matrices
         A, B, C = mpcpy.get_linear_model_matrices(ego_state, action)
 
-        # Get Reference_traj
-        # NOTE: inputs are in world frame
-        target, _ = mpcpy.get_ref_trajectory(ego_state, path, P.TARGET_SPEED)
+        # optimization loop
+        start = time.time()
 
         # MPC step
-        action = mpc.optimize_linearized_model(
-            A, B, C, state, target, time_horizon=P.T, verbose=False
+        _, u_mpc = mpc.optimize_linearized_model(
+            A, B, C, ego_state, target, verbose=False
         )
+        action[0] = u_mpc.value[0, 0]
+        action[1] = u_mpc.value[1, 0]
 
         elapsed = time.time() - start
         print("CVXPY Optimization Time: {:.4f}s".format(elapsed))
 
-        set_ctrl(car, state[2], acc, steer)
+        set_ctrl(car, state[2], action[0], action[1])
 
-        if P.DT - elapsed > 0:
-            time.sleep(P.DT - elapsed)
+        if params.DT - elapsed > 0:
+            time.sleep(params.DT - elapsed)
 
 
 if __name__ == "__main__":
