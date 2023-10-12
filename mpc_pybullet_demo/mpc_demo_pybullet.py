@@ -9,7 +9,7 @@ params = mpcpy.Params()
 
 import sys
 import time
-
+import pathlib
 import pybullet as p
 import time
 
@@ -92,11 +92,12 @@ def run_sim():
     p.setTimeStep(1.0 / 120.0)
     p.setRealTimeSimulation(useRealTimeSim)  # either this
 
-    # TODO(): fix path
-    plane = p.loadURDF("racecar/plane.urdf")
-    # track = p.loadSDF("racecar/f10_racecar/meshes/barca_track.sdf", globalScaling=1)
+    file_path = pathlib.Path(__file__).parent.resolve()
+    plane = p.loadURDF(str(file_path) + "/racecar/plane.urdf")
+    car = p.loadURDF(
+        str(file_path) + "/racecar/f10_racecar/racecar_differential.urdf", [0, 0.3, 0.3]
+    )
 
-    car = p.loadURDF("racecar/f10_racecar/racecar_differential.urdf", [0, 0.3, 0.3])
     for wheel in range(p.getNumJoints(car)):
         # print("joint[",wheel,"]=", p.getJointInfo(car,wheel))
         p.setJointMotorControl2(
