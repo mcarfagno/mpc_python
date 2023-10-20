@@ -247,7 +247,7 @@ def run_sim():
 
         # Get Reference_traj
         # NOTE: inputs are in world frame
-        target, _ = mpcpy.get_ref_trajectory(state, path, params.TARGET_SPEED)
+        target = mpcpy.get_ref_trajectory(state, path, params.TARGET_SPEED)
 
         # for MPC base link frame is used:
         # so x, y, yaw are 0.0, but speed is the same

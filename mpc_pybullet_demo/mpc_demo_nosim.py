@@ -23,10 +23,10 @@ params = mpcpy.Params()
 # Params
 VEL = 1.0  # m/s
 
+
 # Classes
 class MPCSim:
     def __init__(self):
-
         # State for the robot mathematical model [x,y,heading]
         self.state = np.array([SIM_START_X, SIM_START_Y, SIM_START_V, SIM_START_H])
 
@@ -114,7 +114,7 @@ class MPCSim:
             # State Matrices
             A, B, C = mpcpy.get_linear_model_matrices(curr_state, self.action)
             # Get Reference_traj -> inputs are in worldframe
-            target, _ = mpcpy.get_ref_trajectory(self.state, self.path, VEL)
+            target = mpcpy.get_ref_trajectory(self.state, self.path, VEL)
 
             x_mpc, u_mpc = self.mpc.optimize_linearized_model(
                 A,
