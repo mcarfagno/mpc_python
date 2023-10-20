@@ -8,6 +8,10 @@ P = Params()
 def compute_path_from_wp(start_xp, start_yp, step=0.1):
     """
     Computes a reference path given a set of waypoints
+    :param start_xp:
+    :param start_yp:
+    :param step:
+    :return:
     """
     final_xp = []
     final_yp = []
@@ -34,6 +38,9 @@ def compute_path_from_wp(start_xp, start_yp, step=0.1):
 def get_nn_idx(state, path):
     """
     Computes the index of the waypoint closest to vehicle
+    :param state:
+    :param path:
+    :return:
     """
     dx = state[0] - path[0, :]
     dy = state[1] - path[1, :]
@@ -58,6 +65,8 @@ def get_nn_idx(state, path):
 def normalize_angle(angle):
     """
     Normalize an angle to [-pi, pi]
+    :param angle:
+    :return:
     """
     while angle > np.pi:
         angle -= 2.0 * np.pi
@@ -68,40 +77,38 @@ def normalize_angle(angle):
 
 def get_ref_trajectory(state, path, target_v):
     """
-    For each step in the time horizon
-    modified reference in robot frame
+    Reinterpolate the trajectory to get a set N desired target states
+    :param state:
+    :param path:
+    :param target_v:
+    :return:
     """
     K = int(P.T / P.DT)
-    xref = np.zeros((P.N, K + 1))
-    dref = np.zeros((1, K + 1))
-    ncourse = path.shape[1]
+
+    xref = np.zeros((P.N, K))
     ind = get_nn_idx(state, path)
-    dx = path[0, ind] - state[0]
-    dy = path[1, ind] - state[1]
-    xref[0, 0] = dx * np.cos(-state[3]) - dy * np.sin(-state[3])  # X
-    xref[1, 0] = dy * np.cos(-state[3]) + dx * np.sin(-state[3])  # Y
-    xref[2, 0] = target_v  # V
-    xref[3, 0] = normalize_angle(path[2, ind] - state[3])  # Theta
-    dref[0, 0] = 0.0  # Steer operational point should be 0
-    travel = 0.0
-    dl = np.hypot(path[0, 1] - path[0, 0], path[1, 1] - path[1, 0])
-    for i in range(1, K + 1):
-        travel += abs(target_v) * P.DT
-        dind = int(round(travel / dl))
-        if (ind + dind) < ncourse:
-            dx = path[0, ind + dind] - state[0]
-            dy = path[1, ind + dind] - state[1]
-            xref[0, i] = dx * np.cos(-state[3]) - dy * np.sin(-state[3])
-            xref[1, i] = dy * np.cos(-state[3]) + dx * np.sin(-state[3])
-            xref[2, i] = target_v  # sp[ind + dind]
-            xref[3, i] = normalize_angle(path[2, ind + dind] - state[3])
-            dref[0, i] = 0.0
-        else:
-            dx = path[0, ncourse - 1] - state[0]
-            dy = path[1, ncourse - 1] - state[1]
-            xref[0, i] = dx * np.cos(-state[3]) - dy * np.sin(-state[3])
-            xref[1, i] = dy * np.cos(-state[3]) + dx * np.sin(-state[3])
-            xref[2, i] = 0.0  # stop? #sp[ncourse - 1]
-            xref[3, i] = normalize_angle(path[2, ncourse - 1] - state[3])
-            dref[0, i] = 0.0
-    return xref, dref
+
+    cdist = np.append(
+        [0.0], np.cumsum(np.hypot(np.diff(path[0, :].T), np.diff(path[1, :]).T))
+    )
+    cdist = np.clip(cdist, cdist[0], cdist[-1])
+
+    start_dist = cdist[ind]
+    interp_points = [d * P.DT * target_v + start_dist for d in range(1, K + 1)]
+    xref[0, :] = np.interp(interp_points, cdist, path[0, :])
+    xref[1, :] = np.interp(interp_points, cdist, path[1, :])
+    xref[2, :] = target_v
+    xref[3, :] = np.interp(interp_points, cdist, path[2, :])
+
+    # points where the vehicle is at the end of trajectory
+    xref_cdist = np.interp(interp_points, cdist, cdist)
+    stop_idx = np.where(xref_cdist == cdist[-1])
+    xref[2, stop_idx] = 0.0
+
+    # transform in car ego frame
+    dx = xref[0, :] - state[0]
+    dy = xref[1, :] - state[1]
+    xref[0, :] = dx * np.cos(-state[3]) - dy * np.sin(-state[3])  # X
+    xref[1, :] = dy * np.cos(-state[3]) + dx * np.sin(-state[3])  # Y
+    xref[3, :] = normalize_angle(path[2, ind] - state[3])  # Theta
+    return xref

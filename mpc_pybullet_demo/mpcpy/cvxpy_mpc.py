@@ -16,6 +16,9 @@ P = Params()
 def get_linear_model_matrices(x_bar, u_bar):
     """
     Computes the LTI approximated state space model x' = Ax + Bu + C
+    :param x_bar:
+    :param u_bar:
+    :return:
     """
 
     x = x_bar[0]
@@ -58,7 +61,12 @@ def get_linear_model_matrices(x_bar, u_bar):
 
 class MPC:
     def __init__(self, state_cost, final_state_cost, input_cost, input_rate_cost):
-        """ """
+        """
+        :param state_cost:
+        :param final_state_cost:
+        :param input_cost:
+        :param input_rate_cost:
+        """
 
         self.nx = P.N  # number of state vars
         self.nu = P.M  # umber of input/control vars
