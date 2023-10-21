@@ -107,20 +107,18 @@ class MPCSim:
                 print("Success! Goal Reached")
                 input("Press Enter to continue...")
                 return
+
             # optimization loop
             # start=time.time()
-            # dynamycs w.r.t robot frame
-            curr_state = np.array([0, 0, self.state[2], 0])
-            # State Matrices
-            A, B, C = mpcpy.get_linear_model_matrices(curr_state, self.action)
-            # Get Reference_traj -> inputs are in worldframe
+
+            # Get Reference_traj -> inputs are in world frame
             target = mpcpy.get_ref_trajectory(self.state, self.path, VEL)
 
-            x_mpc, u_mpc = self.mpc.optimize_linearized_model(
-                A,
-                B,
-                C,
+            # dynamycs w.r.t robot frame
+            curr_state = np.array([0, 0, self.state[2], 0])
+            x_mpc, u_mpc = self.mpc.step(
                 curr_state,
+                self.action,
                 target,
                 verbose=False,
             )

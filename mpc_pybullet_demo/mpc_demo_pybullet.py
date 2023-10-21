@@ -262,16 +262,11 @@ def run_sim():
             ego_state[3] + action[0] * np.tan(action[1]) / params.L * params.DT
         )
 
-        # State Matrices
-        A, B, C = mpcpy.get_linear_model_matrices(ego_state, action)
-
         # optimization loop
         start = time.time()
 
         # MPC step
-        _, u_mpc = mpc.optimize_linearized_model(
-            A, B, C, ego_state, target, verbose=False
-        )
+        _, u_mpc = mpc.step(ego_state, action, target, verbose=False)
         action[0] = u_mpc.value[0, 0]
         action[1] = u_mpc.value[1, 0]
 

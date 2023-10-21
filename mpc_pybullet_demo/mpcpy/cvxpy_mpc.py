@@ -13,52 +13,6 @@ from .mpc_config import Params
 P = Params()
 
 
-def get_linear_model_matrices(x_bar, u_bar):
-    """
-    Computes the LTI approximated state space model x' = Ax + Bu + C
-    :param x_bar:
-    :param u_bar:
-    :return:
-    """
-
-    x = x_bar[0]
-    y = x_bar[1]
-    v = x_bar[2]
-    theta = x_bar[3]
-
-    a = u_bar[0]
-    delta = u_bar[1]
-
-    ct = np.cos(theta)
-    st = np.sin(theta)
-    cd = np.cos(delta)
-    td = np.tan(delta)
-
-    A = np.zeros((P.N, P.N))
-    A[0, 2] = ct
-    A[0, 3] = -v * st
-    A[1, 2] = st
-    A[1, 3] = v * ct
-    A[3, 2] = v * td / P.L
-    A_lin = np.eye(P.N) + P.DT * A
-
-    B = np.zeros((P.N, P.M))
-    B[2, 0] = 1
-    B[3, 1] = v / (P.L * cd**2)
-    B_lin = P.DT * B
-
-    f_xu = np.array([v * ct, v * st, a, v * td / P.L]).reshape(P.N, 1)
-    C_lin = (
-        P.DT
-        * (
-            f_xu - np.dot(A, x_bar.reshape(P.N, 1)) - np.dot(B, u_bar.reshape(P.M, 1))
-        ).flatten()
-    )
-
-    # return np.round(A_lin,6), np.round(B_lin,6), np.round(C_lin,6)
-    return A_lin, B_lin, C_lin
-
-
 class MPC:
     def __init__(self, state_cost, final_state_cost, input_cost, input_rate_cost):
         """
@@ -91,20 +45,61 @@ class MPC:
         self.u_bounds = np.array([P.MAX_ACC, P.MAX_STEER])
         self.du_bounds = np.array([P.MAX_D_ACC, P.MAX_D_STEER])
 
-    def optimize_linearized_model(
+    def get_linear_model_matrices(self, x_bar, u_bar):
+        """
+        Computes the LTI approximated state space model x' = Ax + Bu + C
+        :param x_bar:
+        :param u_bar:
+        :return:
+        """
+
+        x = x_bar[0]
+        y = x_bar[1]
+        v = x_bar[2]
+        theta = x_bar[3]
+
+        a = u_bar[0]
+        delta = u_bar[1]
+
+        ct = np.cos(theta)
+        st = np.sin(theta)
+        cd = np.cos(delta)
+        td = np.tan(delta)
+
+        A = np.zeros((P.N, P.N))
+        A[0, 2] = ct
+        A[0, 3] = -v * st
+        A[1, 2] = st
+        A[1, 3] = v * ct
+        A[3, 2] = v * td / P.L
+        A_lin = np.eye(self.nx) + P.DT * A
+
+        B = np.zeros((self.nx, self.nu))
+        B[2, 0] = 1
+        B[3, 1] = v / (P.L * cd**2)
+        B_lin = P.DT * B
+
+        f_xu = np.array([v * ct, v * st, a, v * td / P.L]).reshape(self.nx, 1)
+        C_lin = (
+            P.DT
+            * (
+                f_xu
+                - np.dot(A, x_bar.reshape(P.N, 1))
+                - np.dot(B, u_bar.reshape(P.M, 1))
+            ).flatten()
+        )
+
+        return A_lin, B_lin, C_lin
+
+    def step(
         self,
-        A,
-        B,
-        C,
         initial_state,
+        previous_command,
         target,
         verbose=False,
     ):
         """
         Optimisation problem defined for the linearised model,
-        :param A:
-        :param B:
-        :param C:
         :param initial_state:
         :param target:
         :param verbose:
@@ -112,6 +107,9 @@ class MPC:
         """
 
         assert len(initial_state) == self.nx
+
+        # linearise model around current state and command
+        A, B, C = self.get_linear_model_matrices(initial_state, previous_command)
 
         # Create variables
         x = opt.Variable((self.nx, self.control_horizon + 1), name="states")
