@@ -7,8 +7,6 @@ This mainly uses **[CVXPY](https://www.cvxpy.org/)** as a framework. This repo c
 
 ### Usage
 
-From within the `mpc_pybullet_demo` directory:
-
 * To run the pybullet demo:
 ```bash
 python3 mpc_demo_pybullet.py
