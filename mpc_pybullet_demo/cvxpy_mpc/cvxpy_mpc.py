@@ -4,22 +4,23 @@ np.seterr(divide="ignore", invalid="ignore")
 
 import cvxpy as opt
 
-from .mpc_config import Params
-
-P = Params()
-
 
 class MPC:
-    def __init__(self, state_cost, final_state_cost, input_cost, input_rate_cost):
+    def __init__(
+        self, vehicle, T, DT, state_cost, final_state_cost, input_cost, input_rate_cost
+    ):
         """
+        :param vehicle:
+        :param T:
+        :param DT:
         :param state_cost:
         :param final_state_cost:
         :param input_cost:
         :param input_rate_cost:
         """
 
-        self.nx = P.N  # number of state vars
-        self.nu = P.M  # umber of input/control vars
+        self.nx = 4  # number of state vars
+        self.nu = 2  # umber of input/control vars
 
         if len(state_cost) != self.nx:
             raise ValueError(f"State Error cost matrix shuld be of size {self.nx}")
@@ -32,14 +33,13 @@ class MPC:
                 f"Control Effort Difference cost matrix shuld be of size {self.nu}"
             )
 
-        self.dt = P.DT
-        self.control_horizon = int(P.T / P.DT)
+        self.vehicle = vehicle
+        self.dt = DT
+        self.control_horizon = int(T / DT)
         self.Q = np.diag(state_cost)
         self.Qf = np.diag(final_state_cost)
         self.R = np.diag(input_cost)
         self.P = np.diag(input_rate_cost)
-        self.u_bounds = np.array([P.MAX_ACC, P.MAX_STEER])
-        self.du_bounds = np.array([P.MAX_D_ACC, P.MAX_D_STEER])
 
     def get_linear_model_matrices(self, x_bar, u_bar):
         """
@@ -67,15 +67,17 @@ class MPC:
         A[0, 3] = -v * st
         A[1, 2] = st
         A[1, 3] = v * ct
-        A[3, 2] = v * td / P.L
+        A[3, 2] = v * td / self.vehicle.wheelbase
         A_lin = np.eye(self.nx) + self.dt * A
 
-        B = np.zeros((P.N, P.M))
+        B = np.zeros((self.nx, self.nu))
         B[2, 0] = 1
-        B[3, 1] = v / (P.L * cd**2)
+        B[3, 1] = v / (self.vehicle.wheelbase * cd**2)
         B_lin = self.dt * B
 
-        f_xu = np.array([v * ct, v * st, a, v * td / P.L]).reshape(P.N, 1)
+        f_xu = np.array([v * ct, v * st, a, v * td / self.vehicle.wheelbase]).reshape(
+            self.nx, 1
+        )
         C_lin = (
             self.dt
             * (
@@ -122,13 +124,13 @@ class MPC:
             # Kinematics Constrains
             constr += [x[:, k + 1] == A @ x[:, k] + B @ u[:, k] + C]
 
-            # Actuation rate of change limit
+            # Actuation rate of change bounds
             if k < (self.control_horizon - 1):
                 constr += [
-                    opt.abs(u[0, k + 1] - u[0, k]) / self.dt <= self.du_bounds[0]
+                    opt.abs(u[0, k + 1] - u[0, k]) / self.dt <= self.vehicle.max_d_acc
                 ]
                 constr += [
-                    opt.abs(u[1, k + 1] - u[1, k]) / self.dt <= self.du_bounds[1]
+                    opt.abs(u[1, k + 1] - u[1, k]) / self.dt <= self.vehicle.max_d_steer
                 ]
 
         # Final Point tracking
@@ -137,9 +139,9 @@ class MPC:
         # initial state
         constr += [x[:, 0] == initial_state]
 
-        # actuation magnitude
-        constr += [opt.abs(u[:, 0]) <= self.u_bounds[0]]
-        constr += [opt.abs(u[:, 1]) <= self.u_bounds[1]]
+        # actuation bounds
+        constr += [opt.abs(u[:, 0]) <= self.vehicle.max_acc]
+        constr += [opt.abs(u[:, 1]) <= self.vehicle.max_steer]
 
         prob = opt.Problem(opt.Minimize(cost), constr)
         solution = prob.solve(solver=opt.OSQP, warm_start=True, verbose=False)

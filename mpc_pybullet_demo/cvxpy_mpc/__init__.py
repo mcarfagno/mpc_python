@@ -1,2 +1,2 @@
 from .cvxpy_mpc import MPC
-from .mpc_config import Params
+from .vehicle_model import VehicleModel

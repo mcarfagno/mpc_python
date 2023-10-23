@@ -1,8 +1,5 @@
 import numpy as np
 from scipy.interpolate import interp1d
-from .mpc_config import Params
-
-P = Params()
 
 
 def compute_path_from_wp(start_xp, start_yp, step=0.1):
@@ -62,7 +59,7 @@ def get_nn_idx(state, path):
     return target_idx
 
 
-def get_ref_trajectory(state, path, target_v):
+def get_ref_trajectory(state, path, target_v, double T, double DT):
     """
     Reinterpolate the trajectory to get a set N desired target states
     :param state:
@@ -70,9 +67,9 @@ def get_ref_trajectory(state, path, target_v):
     :param target_v:
     :return:
     """
-    K = int(P.T / P.DT)
+    K = int(T / DT)
 
-    xref = np.zeros((P.N, K))
+    xref = np.zeros((4, K))
     ind = get_nn_idx(state, path)
 
     cdist = np.append(

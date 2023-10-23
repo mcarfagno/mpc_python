@@ -5,21 +5,23 @@ import matplotlib.pyplot as plt
 from scipy.integrate import odeint
 
 from cvxpy_mpc.utils import compute_path_from_wp, get_ref_trajectory
-from cvxpy_mpc import MPC, Params
+from cvxpy_mpc import MPC, VehicleModel
 
 import sys
+
 
 # Robot Starting position
 SIM_START_X = 0.0
 SIM_START_Y = 0.5
 SIM_START_V = 0.0
 SIM_START_H = 0.0
-L = 0.3
 
-params = Params()
 
 # Params
-VEL = 1.0  # m/s
+TARGET_VEL = 1.0  # m/s
+T = 5  # Prediction Horizon [s]
+DT = 0.2  # discretization step [s]
+L = 0.3  # vehicle wheelbase [m]
 
 
 # Classes
@@ -29,12 +31,12 @@ class MPCSim:
         self.state = np.array([SIM_START_X, SIM_START_Y, SIM_START_V, SIM_START_H])
 
         # starting guess
-        self.action = np.zeros(params.M)
-        self.action[0] = params.MAX_ACC / 2  # a
+        self.action = np.zeros(2)
+        self.action[0] = 1.0  # a
         self.action[1] = 0.0  # delta
 
-        self.K = int(params.T / params.DT)
-        self.opt_u = np.zeros((params.M, self.K))
+        self.K = int(T / DT)
+        self.opt_u = np.zeros((2, self.K))
 
         # Weights for Cost Matrices
         Q = [20, 20, 10, 20]  # state error cost
@@ -42,7 +44,7 @@ class MPCSim:
         R = [10, 10]  # input cost
         P = [10, 10]  # input rate of change cost
 
-        self.mpc = MPC(Q, Qf, R, P)
+        self.mpc = MPC(VehicleModel(), T, DT, Q, Qf, R, P)
 
         # Interpolated Path to follow given waypoints
         self.path = compute_path_from_wp(
@@ -110,7 +112,7 @@ class MPCSim:
             # dynamycs w.r.t robot frame
             curr_state = np.array([0, 0, self.state[2], 0])
             # Get Reference_traj -> inputs are in worldframe
-            target = get_ref_trajectory(self.state, self.path, VEL)
+            target = get_ref_trajectory(self.state, self.path, TARGET_VEL)
 
             x_mpc, u_mpc = self.mpc.step(
                 curr_state,
@@ -127,21 +129,21 @@ class MPCSim:
             )
             self.action[:] = [u_mpc.value[0, 0], u_mpc.value[1, 0]]
             # print("CVXPY Optimization Time: {:.4f}s".format(time.time()-start))
-            self.predict([self.action[0], self.action[1]])
+            self.predict([self.action[0], self.action[1]], DT)
             self.preview(x_mpc.value)
             self.plot_sim()
 
-    def predict(self, u):
+    def predict(self, u, dt):
         def kinematics_model(x, t, u):
             dxdt = x[2] * np.cos(x[3])
             dydt = x[2] * np.sin(x[3])
             dvdt = u[0]
-            dthetadt = x[2] * np.tan(u[1]) / params.L
+            dthetadt = x[2] * np.tan(u[1]) / L
             dqdt = [dxdt, dydt, dvdt, dthetadt]
             return dqdt
 
         # solve ODE
-        tspan = [0, params.DT]
+        tspan = [0, dt]
         self.state = odeint(kinematics_model, self.state, tspan, args=(u[:],))[1]
 
     def plot_sim(self):
@@ -150,7 +152,7 @@ class MPCSim:
 
         [TODO:description]
         """
-        self.sim_time = self.sim_time + params.DT
+        self.sim_time = self.sim_time + DT
         self.x_history.append(self.state[0])
         self.y_history.append(self.state[1])
         self.v_history.append(self.state[2])
@@ -224,7 +226,7 @@ class MPCSim:
         # plt.title("Linear Velocity {} m/s".format(self.v_history[-1]))
         plt.plot(self.a_history, c="tab:orange")
         locs, _ = plt.xticks()
-        plt.xticks(locs[1:], locs[1:] * params.DT)
+        plt.xticks(locs[1:], locs[1:] * DT)
         plt.ylabel("a(t) [m/ss]")
         plt.xlabel("t [s]")
 
@@ -233,7 +235,7 @@ class MPCSim:
         plt.plot(np.degrees(self.d_history), c="tab:orange")
         plt.ylabel("gamma(t) [deg]")
         locs, _ = plt.xticks()
-        plt.xticks(locs[1:], locs[1:] * params.DT)
+        plt.xticks(locs[1:], locs[1:] * DT)
         plt.xlabel("t [s]")
 
         plt.tight_layout()

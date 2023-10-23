@@ -2,15 +2,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from cvxpy_mpc.utils import compute_path_from_wp, get_ref_trajectory
-from cvxpy_mpc import MPC, Params
-
-params = Params()
+from cvxpy_mpc import MPC, VehicleModel
 
 import sys
 import time
 import pathlib
 import pybullet as p
 import time
+
+# Params
+TARGET_VEL = 1.0  # m/s
+L = 0.3  # vehicle wheelbase [m]
+T = 5  # Prediction Horizon [s]
+DT = 0.2  # discretization step [s]
 
 
 def get_state(robotId):
@@ -34,7 +38,7 @@ def set_ctrl(robotId, currVel, acceleration, steeringAngle):
     wheels = [8, 15]
     maxForce = 50
 
-    targetVelocity = currVel + acceleration * params.DT
+    targetVelocity = currVel + acceleration * DT
 
     for wheel in wheels:
         p.setJointMotorControl2(
@@ -210,8 +214,8 @@ def run_sim():
         p.addUserDebugLine([x_, y_, 0], [x_, y_, 0.33], [0, 0, 1])
 
     # starting guess
-    action = np.zeros(params.M)
-    action[0] = params.MAX_ACC / 2  # a
+    action = np.zeros(2)
+    action[0] = 1.0  # a
     action[1] = 0.0  # delta
 
     # Cost Matrices
@@ -220,7 +224,7 @@ def run_sim():
     R = [10, 10]  # input cost [acc ,steer]
     P = [10, 10]  # input rate of change cost [acc ,steer]
 
-    mpc = MPC(Q, Qf, R, P)
+    mpc = MPC(VehicleModel(), Q, Qf, R, P)
     x_history = []
     y_history = []
 
@@ -246,7 +250,7 @@ def run_sim():
 
         # Get Reference_traj
         # NOTE: inputs are in world frame
-        target = get_ref_trajectory(state, path, params.TARGET_SPEED)
+        target = get_ref_trajectory(state, path, TARGET_VEL)
 
         # for MPC base link frame is used:
         # so x, y, yaw are 0.0, but speed is the same
@@ -254,12 +258,10 @@ def run_sim():
 
         # to account for MPC latency
         # simulate one timestep actuation delay
-        ego_state[0] = ego_state[0] + ego_state[2] * np.cos(ego_state[3]) * params.DT
-        ego_state[1] = ego_state[1] + ego_state[2] * np.sin(ego_state[3]) * params.DT
-        ego_state[2] = ego_state[2] + action[0] * params.DT
-        ego_state[3] = (
-            ego_state[3] + action[0] * np.tan(action[1]) / params.L * params.DT
-        )
+        ego_state[0] = ego_state[0] + ego_state[2] * np.cos(ego_state[3]) * DT
+        ego_state[1] = ego_state[1] + ego_state[2] * np.sin(ego_state[3]) * DT
+        ego_state[2] = ego_state[2] + action[0] * DT
+        ego_state[3] = ego_state[3] + action[0] * np.tan(action[1]) / L * DT
 
         # optimization loop
         start = time.time()
@@ -274,8 +276,8 @@ def run_sim():
 
         set_ctrl(car, state[2], action[0], action[1])
 
-        if params.DT - elapsed > 0:
-            time.sleep(params.DT - elapsed)
+        if DT - elapsed > 0:
+            time.sleep(DT - elapsed)
 
 
 if __name__ == "__main__":
