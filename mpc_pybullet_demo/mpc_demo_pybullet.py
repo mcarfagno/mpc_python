@@ -224,7 +224,7 @@ def run_sim():
     R = [10, 10]  # input cost [acc ,steer]
     P = [10, 10]  # input rate of change cost [acc ,steer]
 
-    mpc = MPC(VehicleModel(), Q, Qf, R, P)
+    mpc = MPC(VehicleModel(), T, DT, Q, Qf, R, P)
     x_history = []
     y_history = []
 
@@ -250,7 +250,7 @@ def run_sim():
 
         # Get Reference_traj
         # NOTE: inputs are in world frame
-        target = get_ref_trajectory(state, path, TARGET_VEL)
+        target = get_ref_trajectory(state, path, TARGET_VEL, T, DT)
 
         # for MPC base link frame is used:
         # so x, y, yaw are 0.0, but speed is the same

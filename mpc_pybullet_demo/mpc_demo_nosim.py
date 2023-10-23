@@ -112,7 +112,7 @@ class MPCSim:
             # dynamycs w.r.t robot frame
             curr_state = np.array([0, 0, self.state[2], 0])
             # Get Reference_traj -> inputs are in worldframe
-            target = get_ref_trajectory(self.state, self.path, TARGET_VEL)
+            target = get_ref_trajectory(self.state, self.path, TARGET_VEL, T, DT)
 
             x_mpc, u_mpc = self.mpc.step(
                 curr_state,

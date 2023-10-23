@@ -59,7 +59,7 @@ def get_nn_idx(state, path):
     return target_idx
 
 
-def get_ref_trajectory(state, path, target_v, double T, double DT):
+def get_ref_trajectory(state, path, target_v, T, DT):
     """
     Reinterpolate the trajectory to get a set N desired target states
     :param state:
@@ -78,7 +78,7 @@ def get_ref_trajectory(state, path, target_v, double T, double DT):
     cdist = np.clip(cdist, cdist[0], cdist[-1])
 
     start_dist = cdist[ind]
-    interp_points = [d * P.DT * target_v + start_dist for d in range(1, K + 1)]
+    interp_points = [d * DT * target_v + start_dist for d in range(1, K + 1)]
     xref[0, :] = np.interp(interp_points, cdist, path[0, :])
     xref[1, :] = np.interp(interp_points, cdist, path[1, :])
     xref[2, :] = target_v
