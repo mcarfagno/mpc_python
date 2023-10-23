@@ -1,11 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import animation
 
-from mpcpy.utils import compute_path_from_wp
-import mpcpy
+from cvxpy_mpc.utils import compute_path_from_wp, get_ref_trajectory
+from cvxpy_mpc import MPC, Params
 
-params = mpcpy.Params()
+params = Params()
 
 import sys
 import time
@@ -221,7 +220,7 @@ def run_sim():
     R = [10, 10]  # input cost [acc ,steer]
     P = [10, 10]  # input rate of change cost [acc ,steer]
 
-    mpc = mpcpy.MPC(Q, Qf, R, P)
+    mpc = MPC(Q, Qf, R, P)
     x_history = []
     y_history = []
 
@@ -247,7 +246,7 @@ def run_sim():
 
         # Get Reference_traj
         # NOTE: inputs are in world frame
-        target = mpcpy.get_ref_trajectory(state, path, params.TARGET_SPEED)
+        target = get_ref_trajectory(state, path, params.TARGET_SPEED)
 
         # for MPC base link frame is used:
         # so x, y, yaw are 0.0, but speed is the same
@@ -262,16 +261,11 @@ def run_sim():
             ego_state[3] + action[0] * np.tan(action[1]) / params.L * params.DT
         )
 
-        # State Matrices
-        A, B, C = mpcpy.get_linear_model_matrices(ego_state, action)
-
         # optimization loop
         start = time.time()
 
         # MPC step
-        _, u_mpc = mpc.optimize_linearized_model(
-            A, B, C, ego_state, target, verbose=False
-        )
+        _, u_mpc = mpc.step(ego_state, target, action, verbose=False)
         action[0] = u_mpc.value[0, 0]
         action[1] = u_mpc.value[1, 0]
 
