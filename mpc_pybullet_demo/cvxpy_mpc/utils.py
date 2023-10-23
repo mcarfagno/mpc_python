@@ -62,19 +62,6 @@ def get_nn_idx(state, path):
     return target_idx
 
 
-def normalize_angle(angle):
-    """
-    Normalize an angle to [-pi, pi]
-    :param angle:
-    :return:
-    """
-    while angle > np.pi:
-        angle -= 2.0 * np.pi
-    while angle < -np.pi:
-        angle += 2.0 * np.pi
-    return angle
-
-
 def get_ref_trajectory(state, path, target_v):
     """
     Reinterpolate the trajectory to get a set N desired target states
@@ -110,5 +97,17 @@ def get_ref_trajectory(state, path, target_v):
     dy = xref[1, :] - state[1]
     xref[0, :] = dx * np.cos(-state[3]) - dy * np.sin(-state[3])  # X
     xref[1, :] = dy * np.cos(-state[3]) + dx * np.sin(-state[3])  # Y
-    xref[3, :] = normalize_angle(path[2, ind] - state[3])  # Theta
+    xref[3, :] = path[2, ind] - state[3]  # Theta
+
+    def fix_angle_reference(angle_ref, angle_init):
+        """
+        This function returns a "smoothened" angle_ref wrt angle_init so there are no jumps.
+        """
+        diff_angle = angle_ref - angle_init
+        diff_angle = np.unwrap(diff_angle)
+        return angle_init + diff_angle
+
+    xref[3, :] = (xref[3, :] + np.pi) % (2.0 * np.pi) - np.pi
+    xref[3, :] = fix_angle_reference(xref[3, :], xref[3, 0])
+
     return xref

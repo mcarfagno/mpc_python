@@ -2,14 +2,12 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import animation
 from scipy.integrate import odeint
 
-from mpcpy.utils import compute_path_from_wp
-import mpcpy
+from cvxpy_mpc.utils import compute_path_from_wp, get_ref_trajectory
+from cvxpy_mpc import MPC, Params
 
 import sys
-import time
 
 # Robot Starting position
 SIM_START_X = 0.0
@@ -18,7 +16,7 @@ SIM_START_V = 0.0
 SIM_START_H = 0.0
 L = 0.3
 
-params = mpcpy.Params()
+params = Params()
 
 # Params
 VEL = 1.0  # m/s
@@ -44,7 +42,7 @@ class MPCSim:
         R = [10, 10]  # input cost
         P = [10, 10]  # input rate of change cost
 
-        self.mpc = mpcpy.MPC(Q, Qf, R, P)
+        self.mpc = MPC(Q, Qf, R, P)
 
         # Interpolated Path to follow given waypoints
         self.path = compute_path_from_wp(
@@ -111,17 +109,13 @@ class MPCSim:
             # start=time.time()
             # dynamycs w.r.t robot frame
             curr_state = np.array([0, 0, self.state[2], 0])
-            # State Matrices
-            A, B, C = mpcpy.get_linear_model_matrices(curr_state, self.action)
             # Get Reference_traj -> inputs are in worldframe
-            target = mpcpy.get_ref_trajectory(self.state, self.path, VEL)
+            target = get_ref_trajectory(self.state, self.path, VEL)
 
-            x_mpc, u_mpc = self.mpc.optimize_linearized_model(
-                A,
-                B,
-                C,
+            x_mpc, u_mpc = self.mpc.step(
                 curr_state,
                 target,
+                self.action,
                 verbose=False,
             )
             # NOTE: used only for preview purposes
@@ -142,8 +136,8 @@ class MPCSim:
             dxdt = x[2] * np.cos(x[3])
             dydt = x[2] * np.sin(x[3])
             dvdt = u[0]
-            dtheta0dt = x[2] * np.tan(u[1]) / params.L
-            dqdt = [dxdt, dydt, dvdt, dtheta0dt]
+            dthetadt = x[2] * np.tan(u[1]) / params.L
+            dqdt = [dxdt, dydt, dvdt, dthetadt]
             return dqdt
 
         # solve ODE
