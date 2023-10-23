@@ -1,6 +1,6 @@
 # mpc_python
 
-I keep here my Jupyter notebooks on R&D on Model Predictive Control applyied to path-following problems in driverless vehicles. Includes also a Pybullet simulation to showcase the results. 
+I keep here my (old) notebooks on Model Predictive Control for path-following problems. Includes a Pybullet simulation to demo the controller. 
 This mainly uses **[CVXPY](https://www.cvxpy.org/)** as a framework. This repo contains code from other projecs, check them out in the special thanks section.
 
 ## Contents
