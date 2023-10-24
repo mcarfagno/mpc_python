@@ -105,12 +105,16 @@ class MPC:
 
         assert len(initial_state) == self.nx
 
-        # Create variables
+        # Create variables needed for setting up cvxpy problem
         x = opt.Variable((self.nx, self.control_horizon + 1), name="states")
         u = opt.Variable((self.nu, self.control_horizon), name="actions")
         cost = 0
         constr = []
 
+        # NOTE: here the state linearization is performed around the starting condition to simplify the controller.
+        # This approximation gets more inaccurate as the controller looks at the future.
+        # To improve performance we can keep track of previous optimized x, u and compute these matrices for each timestep k
+        # Ak, Bk, Ck = self.get_linear_model_matrices(x_prev[:,k], u_prev[:,k])
         A, B, C = self.get_linear_model_matrices(initial_state, prev_cmd)
 
         for k in range(self.control_horizon):
