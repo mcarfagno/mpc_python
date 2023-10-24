@@ -27,33 +27,32 @@ L = 0.3  # vehicle wheelbase [m]
 # Classes
 class MPCSim:
     def __init__(self):
-        # State for the robot mathematical model [x,y,heading]
+        # State of the robot [x,y,v, heading]
         self.state = np.array([SIM_START_X, SIM_START_Y, SIM_START_V, SIM_START_H])
 
-        # starting guess
+        # helper variable to keep track of mpc output
         self.action = np.zeros(2)
+
+        # starting guess
         self.action[0] = 1.0  # a
         self.action[1] = 0.0  # delta
 
         self.K = int(T / DT)
-        self.opt_u = np.zeros((2, self.K))
 
-        # Weights for Cost Matrices
         Q = [20, 20, 10, 20]  # state error cost
         Qf = [30, 30, 30, 30]  # state final error cost
         R = [10, 10]  # input cost
         P = [10, 10]  # input rate of change cost
-
         self.mpc = MPC(VehicleModel(), T, DT, Q, Qf, R, P)
 
-        # Interpolated Path to follow given waypoints
+        # Path from waypoint interpolation
         self.path = compute_path_from_wp(
             [0, 3, 4, 6, 10, 12, 13, 13, 6, 1, 0],
             [0, 0, 2, 4, 3, 3, -1, -2, -6, -2, -2],
             0.05,
         )
 
-        # Sim help vars
+        # Helper variables to keep track of the sim
         self.sim_time = 0
         self.x_history = []
         self.y_history = []
@@ -75,7 +74,7 @@ class MPCSim:
 
         [TODO:description]
         """
-        predicted = np.zeros(self.opt_u.shape)
+        predicted = np.zeros((2, self.K))
         predicted[:, :] = mpc_out[0:2, 1:]
         Rotm = np.array(
             [
@@ -109,27 +108,25 @@ class MPCSim:
                 return
             # optimization loop
             # start=time.time()
-            # dynamycs w.r.t robot frame
-            curr_state = np.array([0, 0, self.state[2], 0])
+
             # Get Reference_traj -> inputs are in worldframe
             target = get_ref_trajectory(self.state, self.path, TARGET_VEL, T, DT)
 
+            # dynamycs w.r.t robot frame
+            curr_state = np.array([0, 0, self.state[2], 0])
             x_mpc, u_mpc = self.mpc.step(
                 curr_state,
                 target,
                 self.action,
                 verbose=False,
             )
-            # NOTE: used only for preview purposes
-            self.opt_u = np.vstack(
-                (
-                    np.array(u_mpc.value[0, :]).flatten(),
-                    np.array(u_mpc.value[1, :]).flatten(),
-                )
-            )
-            self.action[:] = [u_mpc.value[0, 0], u_mpc.value[1, 0]]
             # print("CVXPY Optimization Time: {:.4f}s".format(time.time()-start))
+
+            # only the first one is used to advance the simulation
+            self.action[:] = [u_mpc.value[0, 0], u_mpc.value[1, 0]]
             self.predict([self.action[0], self.action[1]], DT)
+
+            # use the state trajectory to preview the optimizer output
             self.preview(x_mpc.value)
             self.plot_sim()
 
@@ -157,8 +154,8 @@ class MPCSim:
         self.y_history.append(self.state[1])
         self.v_history.append(self.state[2])
         self.h_history.append(self.state[3])
-        self.a_history.append(self.opt_u[0, 1])
-        self.d_history.append(self.opt_u[1, 1])
+        self.a_history.append(self.action[0])
+        self.d_history.append(self.action[1])
 
         plt.clf()
 
