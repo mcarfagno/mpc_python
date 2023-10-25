@@ -18,7 +18,14 @@ DT = 0.2  # discretization step [s]
 
 
 def get_state(robotId):
-    """ """
+    """
+
+    Args:
+        robotId ():
+
+    Returns:
+
+    """
     robPos, robOrn = p.getBasePositionAndOrientation(robotId)
     linVel, angVel = p.getBaseVelocity(robotId)
 
@@ -33,6 +40,14 @@ def get_state(robotId):
 
 
 def set_ctrl(robotId, currVel, acceleration, steeringAngle):
+    """
+
+    Args:
+        robotId ():
+        currVel ():
+        acceleration ():
+        steeringAngle ():
+    """
     gearRatio = 1.0 / 21
     steering = [0, 2]
     wheels = [8, 15]
@@ -56,7 +71,6 @@ def set_ctrl(robotId, currVel, acceleration, steeringAngle):
 
 
 def plot_results(path, x_history, y_history):
-    """ """
     plt.style.use("ggplot")
     plt.figure()
     plt.title("MPC Tracking Results")
@@ -78,7 +92,6 @@ def plot_results(path, x_history, y_history):
 
 
 def run_sim():
-    """ """
     p.connect(p.GUI)
     p.resetDebugVisualizerCamera(
         cameraDistance=1.0,
@@ -213,10 +226,8 @@ def run_sim():
     for x_, y_ in zip(path[0, :], path[1, :]):
         p.addUserDebugLine([x_, y_, 0], [x_, y_, 0.33], [0, 0, 1])
 
-    # starting guess
+    # starting conditions
     action = np.zeros(2)
-    action[0] = 1.0  # a
-    action[1] = 0.0  # delta
 
     # Cost Matrices
     Q = [20, 20, 10, 20]  # state error cost [x,y,v,yaw]

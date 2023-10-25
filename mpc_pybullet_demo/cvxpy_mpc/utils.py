@@ -4,11 +4,14 @@ from scipy.interpolate import interp1d
 
 def compute_path_from_wp(start_xp, start_yp, step=0.1):
     """
-    Computes a reference path given a set of waypoints
-    :param start_xp:
-    :param start_yp:
-    :param step:
-    :return:
+
+    Args:
+        start_xp (array-like): 1D array of x-positions
+        start_yp (array-like): 1D array of y-positions
+        step (float): intepolation step
+
+    Returns:
+        ndarray of shape (3,N) representing the  path as x,y,heading
     """
     final_xp = []
     final_yp = []
@@ -34,10 +37,14 @@ def compute_path_from_wp(start_xp, start_yp, step=0.1):
 
 def get_nn_idx(state, path):
     """
-    Computes the index of the waypoint closest to vehicle
-    :param state:
-    :param path:
-    :return:
+    Finds the index of the closest element
+
+    Args:
+        state (array-like): 1D array whose first two elements are x-pos and y-pos
+        path (ndarray): 2D array of shape (2,N) of x,y points
+
+    Returns:
+        int: the index of the closest element
     """
     dx = state[0] - path[0, :]
     dy = state[1] - path[1, :]
@@ -61,11 +68,16 @@ def get_nn_idx(state, path):
 
 def get_ref_trajectory(state, path, target_v, T, DT):
     """
-    Reinterpolate the trajectory to get a set N desired target states
-    :param state:
-    :param path:
-    :param target_v:
-    :return:
+
+    Args:
+        state (array-like): state of the vehicle in world frame
+        path (ndarray): 2D array representing the path as x,y,heading points in world frame
+        target_v (float): reference speed
+        T (float): trajectory duration
+        DT (float): trajectory time-step
+
+    Returns:
+        ndarray: 2D array representing state space reference trajectory expressed w.r.t ego state
     """
     K = int(T / DT)
 
@@ -98,7 +110,14 @@ def get_ref_trajectory(state, path, target_v, T, DT):
 
     def fix_angle_reference(angle_ref, angle_init):
         """
-        This function returns a "smoothened" angle_ref wrt angle_init so there are no jumps.
+        Removes jumps greater than 2PI
+
+        Args:
+            angle_ref (array-like):
+            angle_init (float):
+
+        Returns:
+            array-like:
         """
         diff_angle = angle_ref - angle_init
         diff_angle = np.unwrap(diff_angle)

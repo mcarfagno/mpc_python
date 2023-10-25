@@ -10,15 +10,16 @@ class MPC:
         self, vehicle, T, DT, state_cost, final_state_cost, input_cost, input_rate_cost
     ):
         """
-        :param vehicle:
-        :param T:
-        :param DT:
-        :param state_cost:
-        :param final_state_cost:
-        :param input_cost:
-        :param input_rate_cost:
-        """
 
+        Args:
+            vehicle ():
+            T ():
+            DT ():
+            state_cost ():
+            final_state_cost ():
+            input_cost ():
+            input_rate_cost ():
+        """
         self.nx = 4  # number of state vars
         self.nu = 2  # umber of input/control vars
 
@@ -44,9 +45,13 @@ class MPC:
     def get_linear_model_matrices(self, x_bar, u_bar):
         """
         Computes the LTI approximated state space model x' = Ax + Bu + C
-        :param x_bar:
-        :param u_bar:
-        :return:
+
+        Args:
+            x_bar ():
+            u_bar ():
+
+        Returns:
+
         """
 
         x = x_bar[0]
@@ -96,13 +101,16 @@ class MPC:
         verbose=False,
     ):
         """
-        Optimisation problem defined for the linearised model,
-        :param initial_state:
-        :param target:
-        :param verbose:
-        :return:
-        """
 
+        Args:
+            initial_state ():
+            target ():
+            prev_cmd ():
+            verbose ():
+
+        Returns:
+
+        """
         assert len(initial_state) == self.nx
 
         # Create variables needed for setting up cvxpy problem
@@ -117,28 +125,24 @@ class MPC:
         # Ak, Bk, Ck = self.get_linear_model_matrices(x_prev[:,k], u_prev[:,k])
         A, B, C = self.get_linear_model_matrices(initial_state, prev_cmd)
 
+        # Tracking error cost
         for k in range(self.control_horizon):
-            cost += opt.quad_form(target[:, k] - x[:, k + 1], self.Q)
+            cost += opt.quad_form(x[:, k + 1] - target[:, k], self.Q)
+
+        # Final point tracking cost
+        cost += opt.quad_form(x[:, -1] - target[:, -1], self.Qf)
+
+        # Actuation magnitude cost
+        for k in range(self.control_horizon):
             cost += opt.quad_form(u[:, k], self.R)
 
-            # Actuation rate of change
-            if k < (self.control_horizon - 1):
-                cost += opt.quad_form(u[:, k + 1] - u[:, k], self.P)
+        # Actuation rate of change cost
+        for k in range(1, self.control_horizon):
+            cost += opt.quad_form(u[:, k] - u[:, k - 1], self.P)
 
-            # Kinematics Constrains
+        # Kinematics Constrains
+        for k in range(self.control_horizon):
             constr += [x[:, k + 1] == A @ x[:, k] + B @ u[:, k] + C]
-
-            # Actuation rate of change bounds
-            if k < (self.control_horizon - 1):
-                constr += [
-                    opt.abs(u[0, k + 1] - u[0, k]) / self.dt <= self.vehicle.max_d_acc
-                ]
-                constr += [
-                    opt.abs(u[1, k + 1] - u[1, k]) / self.dt <= self.vehicle.max_d_steer
-                ]
-
-        # Final Point tracking
-        cost += opt.quad_form(x[:, -1] - target[:, -1], self.Qf)
 
         # initial state
         constr += [x[:, 0] == initial_state]
@@ -146,6 +150,17 @@ class MPC:
         # actuation bounds
         constr += [opt.abs(u[:, 0]) <= self.vehicle.max_acc]
         constr += [opt.abs(u[:, 1]) <= self.vehicle.max_steer]
+
+        # Actuation rate of change bounds
+        constr += [opt.abs(u[0, 0] - prev_cmd[0]) / self.dt <= self.vehicle.max_d_acc]
+        constr += [opt.abs(u[1, 0] - prev_cmd[1]) / self.dt <= self.vehicle.max_d_steer]
+        for k in range(1, self.control_horizon):
+            constr += [
+                opt.abs(u[0, k] - u[0, k - 1]) / self.dt <= self.vehicle.max_d_acc
+            ]
+            constr += [
+                opt.abs(u[1, k] - u[1, k - 1]) / self.dt <= self.vehicle.max_d_steer
+            ]
 
         prob = opt.Problem(opt.Minimize(cost), constr)
         solution = prob.solve(solver=opt.OSQP, warm_start=True, verbose=False)
