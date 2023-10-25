@@ -10,15 +10,16 @@ class MPC:
         self, vehicle, T, DT, state_cost, final_state_cost, input_cost, input_rate_cost
     ):
         """
-        :param vehicle:
-        :param T:
-        :param DT:
-        :param state_cost:
-        :param final_state_cost:
-        :param input_cost:
-        :param input_rate_cost:
-        """
 
+        Args:
+            vehicle ():
+            T ():
+            DT ():
+            state_cost ():
+            final_state_cost ():
+            input_cost ():
+            input_rate_cost ():
+        """
         self.nx = 4  # number of state vars
         self.nu = 2  # umber of input/control vars
 
@@ -44,9 +45,13 @@ class MPC:
     def get_linear_model_matrices(self, x_bar, u_bar):
         """
         Computes the LTI approximated state space model x' = Ax + Bu + C
-        :param x_bar:
-        :param u_bar:
-        :return:
+
+        Args:
+            x_bar ():
+            u_bar ():
+
+        Returns:
+
         """
 
         x = x_bar[0]
@@ -96,13 +101,16 @@ class MPC:
         verbose=False,
     ):
         """
-        Optimisation problem defined for the linearised model,
-        :param initial_state:
-        :param target:
-        :param verbose:
-        :return:
-        """
 
+        Args:
+            initial_state ():
+            target ():
+            prev_cmd ():
+            verbose ():
+
+        Returns:
+
+        """
         assert len(initial_state) == self.nx
 
         # Create variables needed for setting up cvxpy problem

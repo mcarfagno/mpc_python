@@ -3,7 +3,14 @@ import numpy as np
 
 class VehicleModel:
     """
-    Helper class to hold vehicle info
+
+    Attributes:
+        wheelbase:
+        max_speed:
+        max_acc:
+        max_d_acc:
+        max_steer:
+        max_d_steer:
     """
 
     def __init__(self):

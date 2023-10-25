@@ -70,9 +70,9 @@ class MPCSim:
 
     def preview(self, mpc_out):
         """
-        [TODO:summary]
 
-        [TODO:description]
+        Args:
+            mpc_out ():
         """
         predicted = np.zeros((2, self.K))
         predicted[:, :] = mpc_out[0:2, 1:]
@@ -85,7 +85,7 @@ class MPCSim:
         predicted = (predicted.T.dot(Rotm)).T
         predicted[0, :] += self.state[0]
         predicted[1, :] += self.state[1]
-        self.predicted = predicted
+        return predicted
 
     def run(self):
         """
@@ -124,10 +124,10 @@ class MPCSim:
 
             # only the first one is used to advance the simulation
             self.action[:] = [u_mpc.value[0, 0], u_mpc.value[1, 0]]
-            self.predict([self.action[0], self.action[1]], DT)
+            self.state = self.predict([self.action[0], self.action[1]], DT)
 
             # use the state trajectory to preview the optimizer output
-            self.preview(x_mpc.value)
+            self.predicted = self.preview(x_mpc.value)
             self.plot_sim()
 
     def predict(self, u, dt):
@@ -141,14 +141,9 @@ class MPCSim:
 
         # solve ODE
         tspan = [0, dt]
-        self.state = odeint(kinematics_model, self.state, tspan, args=(u[:],))[1]
+        return odeint(kinematics_model, self.state, tspan, args=(u[:],))[1]
 
     def plot_sim(self):
-        """
-        [TODO:summary]
-
-        [TODO:description]
-        """
         self.sim_time = self.sim_time + DT
         self.x_history.append(self.state[0])
         self.y_history.append(self.state[1])
@@ -243,18 +238,11 @@ class MPCSim:
 
 def plot_car(x, y, yaw):
     """
-    [TODO:summary]
 
-    [TODO:description]
-
-    Parameters
-    ----------
-    x : [TODO:type]
-        [TODO:description]
-    y : [TODO:type]
-        [TODO:description]
-    yaw : [TODO:type]
-        [TODO:description]
+    Args:
+        x ():
+        y ():
+        yaw ():
     """
     LENGTH = 0.5  # [m]
     WIDTH = 0.25  # [m]

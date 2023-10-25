@@ -4,11 +4,14 @@ from scipy.interpolate import interp1d
 
 def compute_path_from_wp(start_xp, start_yp, step=0.1):
     """
-    Computes a reference path given a set of waypoints
-    :param start_xp:
-    :param start_yp:
-    :param step:
-    :return:
+
+    Args:
+        start_xp ():
+        start_yp ():
+        step ():
+
+    Returns:
+
     """
     final_xp = []
     final_yp = []
@@ -34,10 +37,13 @@ def compute_path_from_wp(start_xp, start_yp, step=0.1):
 
 def get_nn_idx(state, path):
     """
-    Computes the index of the waypoint closest to vehicle
-    :param state:
-    :param path:
-    :return:
+
+    Args:
+        state ():
+        path ():
+
+    Returns:
+
     """
     dx = state[0] - path[0, :]
     dy = state[1] - path[1, :]
@@ -61,11 +67,16 @@ def get_nn_idx(state, path):
 
 def get_ref_trajectory(state, path, target_v, T, DT):
     """
-    Reinterpolate the trajectory to get a set N desired target states
-    :param state:
-    :param path:
-    :param target_v:
-    :return:
+
+    Args:
+        state ():
+        path ():
+        target_v ():
+        T ():
+        DT ():
+
+    Returns:
+
     """
     K = int(T / DT)
 
@@ -98,7 +109,13 @@ def get_ref_trajectory(state, path, target_v, T, DT):
 
     def fix_angle_reference(angle_ref, angle_init):
         """
-        This function returns a "smoothened" angle_ref wrt angle_init so there are no jumps.
+
+        Args:
+            angle_ref ():
+            angle_init ():
+
+        Returns:
+
         """
         diff_angle = angle_ref - angle_init
         diff_angle = np.unwrap(diff_angle)
