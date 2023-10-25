@@ -125,28 +125,24 @@ class MPC:
         # Ak, Bk, Ck = self.get_linear_model_matrices(x_prev[:,k], u_prev[:,k])
         A, B, C = self.get_linear_model_matrices(initial_state, prev_cmd)
 
+        # Tracking error cost
         for k in range(self.control_horizon):
-            cost += opt.quad_form(target[:, k] - x[:, k + 1], self.Q)
+            cost += opt.quad_form(x[:, k + 1] - target[:, k], self.Q)
+
+        # Final point tracking cost
+        cost += opt.quad_form(x[:, -1] - target[:, -1], self.Qf)
+
+        # Actuation magnitude cost
+        for k in range(self.control_horizon):
             cost += opt.quad_form(u[:, k], self.R)
 
-            # Actuation rate of change
-            if k < (self.control_horizon - 1):
-                cost += opt.quad_form(u[:, k + 1] - u[:, k], self.P)
+        # Actuation rate of change cost
+        for k in range(1, self.control_horizon):
+            cost += opt.quad_form(u[:, k] - u[:, k - 1], self.P)
 
-            # Kinematics Constrains
+        # Kinematics Constrains
+        for k in range(self.control_horizon):
             constr += [x[:, k + 1] == A @ x[:, k] + B @ u[:, k] + C]
-
-            # Actuation rate of change bounds
-            if k < (self.control_horizon - 1):
-                constr += [
-                    opt.abs(u[0, k + 1] - u[0, k]) / self.dt <= self.vehicle.max_d_acc
-                ]
-                constr += [
-                    opt.abs(u[1, k + 1] - u[1, k]) / self.dt <= self.vehicle.max_d_steer
-                ]
-
-        # Final Point tracking
-        cost += opt.quad_form(x[:, -1] - target[:, -1], self.Qf)
 
         # initial state
         constr += [x[:, 0] == initial_state]
@@ -154,6 +150,17 @@ class MPC:
         # actuation bounds
         constr += [opt.abs(u[:, 0]) <= self.vehicle.max_acc]
         constr += [opt.abs(u[:, 1]) <= self.vehicle.max_steer]
+
+        # Actuation rate of change bounds
+        constr += [opt.abs(u[0, 0] - prev_cmd[0]) / self.dt <= self.vehicle.max_d_acc]
+        constr += [opt.abs(u[1, 0] - prev_cmd[1]) / self.dt <= self.vehicle.max_d_steer]
+        for k in range(1, self.control_horizon):
+            constr += [
+                opt.abs(u[0, k] - u[0, k - 1]) / self.dt <= self.vehicle.max_d_acc
+            ]
+            constr += [
+                opt.abs(u[1, k] - u[1, k - 1]) / self.dt <= self.vehicle.max_d_steer
+            ]
 
         prob = opt.Problem(opt.Minimize(cost), constr)
         solution = prob.solve(solver=opt.OSQP, warm_start=True, verbose=False)

@@ -226,10 +226,8 @@ def run_sim():
     for x_, y_ in zip(path[0, :], path[1, :]):
         p.addUserDebugLine([x_, y_, 0], [x_, y_, 0.33], [0, 0, 1])
 
-    # starting guess
+    # starting conditions
     action = np.zeros(2)
-    action[0] = 1.0  # a
-    action[1] = 0.0  # delta
 
     # Cost Matrices
     Q = [20, 20, 10, 20]  # state error cost [x,y,v,yaw]
