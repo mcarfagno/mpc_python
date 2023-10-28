@@ -44,11 +44,11 @@ class MPC:
 
     def get_linear_model_matrices(self, x_bar, u_bar):
         """
-        Computes the LTI approximated state space model x' = Ax + Bu + C
+        Computes the approximated LTI state space model x' = Ax + Bu + C
 
         Args:
-            x_bar ():
-            u_bar ():
+            x_bar (array-like):
+            u_bar (array-like):
 
         Returns:
 
@@ -103,15 +103,17 @@ class MPC:
         """
 
         Args:
-            initial_state ():
-            target ():
-            prev_cmd ():
-            verbose ():
+            initial_state (array-like): current estimate of [x, y, v, heading]
+            target (ndarray): state space reference, in the same frame as the provided current state
+            prev_cmd (array-like): previous [acceleration, steer]. note this is used in bounds and has to be realistic.
+            verbose (bool):
 
         Returns:
 
         """
         assert len(initial_state) == self.nx
+        assert len(prev_cmd) == self.nu
+        assert target.shape == (self.nx, self.control_horizon)
 
         # Create variables needed for setting up cvxpy problem
         x = opt.Variable((self.nx, self.control_horizon + 1), name="states")

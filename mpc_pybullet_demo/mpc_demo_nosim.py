@@ -65,7 +65,7 @@ class MPCSim:
         plt.ion()
         plt.show()
 
-    def preview(self, mpc_out):
+    def ego_to_world(self, mpc_out):
         """
 
         Args:
@@ -121,13 +121,15 @@ class MPCSim:
             # only the first one is used to advance the simulation
 
             self.action[:] = [u_mpc.value[0, 0], u_mpc.value[1, 0]]
-            self.state = self.predict(self.state, [self.action[0], self.action[1]], DT)
+            self.state = self.predict_next_state(
+                self.state, [self.action[0], self.action[1]], DT
+            )
 
-            # use the state trajectory to preview the optimizer output
-            self.predicted = self.preview(x_mpc.value)
+            # use the optimizer output to preview the predicted state trajectory
+            self.predicted = self.ego_to_world(x_mpc.value)
             self.plot_sim()
 
-    def predict(self, state, u, dt):
+    def predict_next_state(self, state, u, dt):
         def kinematics_model(x, t, u):
             dxdt = x[2] * np.cos(x[3])
             dydt = x[2] * np.sin(x[3])

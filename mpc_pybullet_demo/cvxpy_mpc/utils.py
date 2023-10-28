@@ -70,14 +70,15 @@ def get_ref_trajectory(state, path, target_v, T, DT):
     """
 
     Args:
-        state (array-like): state of the vehicle in world frame
-        path (ndarray): 2D array representing the path as x,y,heading points in world frame
-        target_v (float): reference speed
-        T (float): trajectory duration
-        DT (float): trajectory time-step
+        state (array-like): state of the vehicle in global frame
+        path (ndarray): 2D array representing the path as x,y,heading points in global frame
+        target_v (float): desired speed
+        T (float): control horizon duration
+        DT (float):  control horizon time-step
 
     Returns:
-        ndarray: 2D array representing state space reference trajectory expressed w.r.t ego state
+        ndarray: 2D array representing state space trajectory [x_k, y_k, v_k, theta_k] w.r.t ego frame.
+        Interpolated according to the time-step and the desired velocity
     """
     K = int(T / DT)
 
@@ -101,7 +102,7 @@ def get_ref_trajectory(state, path, target_v, T, DT):
     stop_idx = np.where(xref_cdist == cdist[-1])
     xref[2, stop_idx] = 0.0
 
-    # transform in car ego frame
+    # transform in ego frame
     dx = xref[0, :] - state[0]
     dy = xref[1, :] - state[1]
     xref[0, :] = dx * np.cos(-state[3]) - dy * np.sin(-state[3])  # X
@@ -110,7 +111,7 @@ def get_ref_trajectory(state, path, target_v, T, DT):
 
     def fix_angle_reference(angle_ref, angle_init):
         """
-        Removes jumps greater than 2PI
+        Removes jumps greater than 2PI to smooth the heading
 
         Args:
             angle_ref (array-like):
