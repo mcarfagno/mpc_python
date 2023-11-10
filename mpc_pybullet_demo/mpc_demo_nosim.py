@@ -32,7 +32,7 @@ class MPCSim:
 
         # helper variable to keep track of mpc output
         # starting condition is 0,0
-        self.action = np.zeros(2)
+        self.control = np.zeros(2)
 
         self.K = int(T / DT)
 
@@ -57,7 +57,7 @@ class MPCSim:
         self.h_history = []
         self.a_history = []
         self.d_history = []
-        self.predicted = None
+        self.optimized_trajectory = None
 
         # Initialise plot
         plt.style.use("ggplot")
@@ -65,24 +65,26 @@ class MPCSim:
         plt.ion()
         plt.show()
 
-    def ego_to_world(self, mpc_out):
+    def ego_to_global(self, mpc_out):
         """
+        transforms optimized trajectory XY points from ego(car) reference
+        into global(map) frame
 
         Args:
             mpc_out ():
         """
-        predicted = np.zeros((2, self.K))
-        predicted[:, :] = mpc_out[0:2, 1:]
+        trajectory = np.zeros((2, self.K))
+        trajectory[:, :] = mpc_out[0:2, 1:]
         Rotm = np.array(
             [
                 [np.cos(self.state[3]), np.sin(self.state[3])],
                 [-np.sin(self.state[3]), np.cos(self.state[3])],
             ]
         )
-        predicted = (predicted.T.dot(Rotm)).T
-        predicted[0, :] += self.state[0]
-        predicted[1, :] += self.state[1]
-        return predicted
+        trajectory = (trajectory.T.dot(Rotm)).T
+        trajectory[0, :] += self.state[0]
+        trajectory[1, :] += self.state[1]
+        return trajectory
 
     def run(self):
         """
@@ -114,19 +116,19 @@ class MPCSim:
             x_mpc, u_mpc = self.mpc.step(
                 curr_state,
                 target,
-                self.action,
+                self.control,
                 verbose=False,
             )
             # print("CVXPY Optimization Time: {:.4f}s".format(time.time()-start))
             # only the first one is used to advance the simulation
 
-            self.action[:] = [u_mpc.value[0, 0], u_mpc.value[1, 0]]
+            self.control[:] = [u_mpc.value[0, 0], u_mpc.value[1, 0]]
             self.state = self.predict_next_state(
-                self.state, [self.action[0], self.action[1]], DT
+                self.state, [self.control[0], self.control[1]], DT
             )
 
             # use the optimizer output to preview the predicted state trajectory
-            self.predicted = self.ego_to_world(x_mpc.value)
+            self.optimized_trajectory = self.ego_to_global(x_mpc.value)
             self.plot_sim()
 
     def predict_next_state(self, state, u, dt):
@@ -149,8 +151,8 @@ class MPCSim:
         self.y_history.append(self.state[1])
         self.v_history.append(self.state[2])
         self.h_history.append(self.state[3])
-        self.a_history.append(self.action[0])
-        self.d_history.append(self.action[1])
+        self.a_history.append(self.control[0])
+        self.d_history.append(self.control[1])
 
         plt.clf()
 
@@ -178,10 +180,10 @@ class MPCSim:
             label="vehicle trajectory",
         )
 
-        if self.predicted is not None:
+        if self.optimized_trajectory is not None:
             plt.plot(
-                self.predicted[0, :],
-                self.predicted[1, :],
+                self.optimized_trajectory[0, :],
+                self.optimized_trajectory[1, :],
                 c="tab:green",
                 marker="+",
                 alpha=0.5,

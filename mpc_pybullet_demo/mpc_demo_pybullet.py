@@ -227,7 +227,7 @@ def run_sim():
         p.addUserDebugLine([x_, y_, 0], [x_, y_, 0.33], [0, 0, 1])
 
     # starting conditions
-    action = np.zeros(2)
+    control = np.zeros(2)
 
     # Cost Matrices
     Q = [20, 20, 10, 20]  # state error cost [x,y,v,yaw]
@@ -271,21 +271,21 @@ def run_sim():
         # simulate one timestep actuation delay
         ego_state[0] = ego_state[0] + ego_state[2] * np.cos(ego_state[3]) * DT
         ego_state[1] = ego_state[1] + ego_state[2] * np.sin(ego_state[3]) * DT
-        ego_state[2] = ego_state[2] + action[0] * DT
-        ego_state[3] = ego_state[3] + action[0] * np.tan(action[1]) / L * DT
+        ego_state[2] = ego_state[2] + control[0] * DT
+        ego_state[3] = ego_state[3] + control[0] * np.tan(control[1]) / L * DT
 
         # optimization loop
         start = time.time()
 
         # MPC step
-        _, u_mpc = mpc.step(ego_state, target, action, verbose=False)
-        action[0] = u_mpc.value[0, 0]
-        action[1] = u_mpc.value[1, 0]
+        _, u_mpc = mpc.step(ego_state, target, control, verbose=False)
+        control[0] = u_mpc.value[0, 0]
+        control[1] = u_mpc.value[1, 0]
 
         elapsed = time.time() - start
         print("CVXPY Optimization Time: {:.4f}s".format(elapsed))
 
-        set_ctrl(car, state[2], action[0], action[1])
+        set_ctrl(car, state[2], control[0], control[1])
 
         if DT - elapsed > 0:
             time.sleep(DT - elapsed)
