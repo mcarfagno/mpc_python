@@ -5,22 +5,6 @@ This mainly uses **[CVXPY](https://www.cvxpy.org/)** as a framework. This repo c
 
 ## Contents
 
-### Usage
-
-* To run the pybullet demo:
-```bash
-python3 mpc_demo_pybullet.py
-```
-
-* To run the simulation-less demo (simpler demo that does not use pybullet, useful for debugging):
-```bash
-python3 mpc_demo_pybullet.py
-```
-
-In both cases the script will promt the user for `enter` before starting the demo.
-
-The settings for tuning the MPC controller are in the **[mpc_config](./mpc_pybullet_demo/mpcpy/mpc_config.py)** class.
-
 ### Jupyter Notebooks
 
 1. State space model derivation -> analytical and numerical derivaion of the model
@@ -70,17 +54,43 @@ Results:
 ![](img/demo.gif)
 
 
-### Requirements
+### Usage
+
+I recomend using the included dockerfile to run the demo, otherwise the requirements can be installed locally in a conda environment.
+
+#### Docker
+
+From this repository root directory:
+
+```bash
+docker build -t mpc-demo -f docker/Dockerfile .
+```
+
+* To run the pybullet demo:
+```bash
+xhost +local:
+docker run -it --net=host --ipc=host --privileged \
+    --env="DISPLAY" \
+    --env="QT_X11_NO_MITSHM=1" \
+    --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
+    --volume="${XAUTHORITY}:/root/.Xauthority" \
+    mpc-demo:latest \
+    bash -c "python3 mpc_demo_pybullet.py"
+```
+
+
+To run the simulation-less demo (simpler demo that does not use pybullet, useful for debugging) change the last command to python3 `mpc_demo_nosim.py`
+
+In both cases the script will promt the user for `enter` before starting the demo.
+
+The settings for tuning the MPC controller are in the **[mpc_config](./mpc_pybullet_demo/mpcpy/mpc_config.py)** class.
+
+#### Requirements
 
 The environment can be repoduced via [conda](https://www.anaconda.com/products/distribution):
 ```bash
 conda env create -f env.yml
 conda activate simulation
-```
-
-The dependencies for just the python scripts can also be installed using `pip`:
-```bash
-pip3 install --user --requirement requirements.txt
 ```
 
 ## References & Special Thanks :star: :
