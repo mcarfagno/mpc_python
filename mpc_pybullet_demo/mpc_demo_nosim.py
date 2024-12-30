@@ -1,14 +1,12 @@
 #! /usr/bin/env python
 
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy.integrate import odeint
-
-from cvxpy_mpc.utils import compute_path_from_wp, get_ref_trajectory
-from cvxpy_mpc import MPC, VehicleModel
-
 import sys
 
+import matplotlib.pyplot as plt
+import numpy as np
+from cvxpy_mpc import MPC, VehicleModel
+from cvxpy_mpc.utils import compute_path_from_wp, get_ref_trajectory
+from scipy.integrate import odeint
 
 # Robot Starting position
 SIM_START_X = 0.0
@@ -122,13 +120,13 @@ class MPCSim:
             # print("CVXPY Optimization Time: {:.4f}s".format(time.time()-start))
             # only the first one is used to advance the simulation
 
-            self.control[:] = [u_mpc.value[0, 0], u_mpc.value[1, 0]]
+            self.control[:] = [u_mpc[0, 0], u_mpc[1, 0]]
             self.state = self.predict_next_state(
                 self.state, [self.control[0], self.control[1]], DT
             )
 
             # use the optimizer output to preview the predicted state trajectory
-            self.optimized_trajectory = self.ego_to_global(x_mpc.value)
+            self.optimized_trajectory = self.ego_to_global(x_mpc)
             self.plot_sim()
 
     def predict_next_state(self, state, u, dt):
