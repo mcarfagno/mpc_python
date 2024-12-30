@@ -92,42 +92,45 @@ class MPCSim:
         """
         self.plot_sim()
         input("Press Enter to continue...")
-        while 1:
-            if (
-                np.sqrt(
-                    (self.state[0] - self.path[0, -1]) ** 2
-                    + (self.state[1] - self.path[1, -1]) ** 2
+        try:
+            while 1:
+                if (
+                    np.sqrt(
+                        (self.state[0] - self.path[0, -1]) ** 2
+                        + (self.state[1] - self.path[1, -1]) ** 2
+                    )
+                    < 0.5
+                ):
+                    print("Success! Goal Reached")
+                    input("Press Enter to continue...")
+                    return
+                # optimization loop
+                # start=time.time()
+
+                # Get Reference_traj -> inputs are in worldframe
+                target = get_ref_trajectory(self.state, self.path, TARGET_VEL, T, DT)
+
+                # dynamycs w.r.t robot frame
+                curr_state = np.array([0, 0, self.state[2], 0])
+                x_mpc, u_mpc = self.mpc.step(
+                    curr_state,
+                    target,
+                    self.control,
+                    verbose=False,
                 )
-                < 0.5
-            ):
-                print("Success! Goal Reached")
-                input("Press Enter to continue...")
-                return
-            # optimization loop
-            # start=time.time()
+                # print("CVXPY Optimization Time: {:.4f}s".format(time.time()-start))
+                # only the first one is used to advance the simulation
 
-            # Get Reference_traj -> inputs are in worldframe
-            target = get_ref_trajectory(self.state, self.path, TARGET_VEL, T, DT)
+                self.control[:] = [u_mpc[0, 0], u_mpc[1, 0]]
+                self.state = self.predict_next_state(
+                    self.state, [self.control[0], self.control[1]], DT
+                )
 
-            # dynamycs w.r.t robot frame
-            curr_state = np.array([0, 0, self.state[2], 0])
-            x_mpc, u_mpc = self.mpc.step(
-                curr_state,
-                target,
-                self.control,
-                verbose=False,
-            )
-            # print("CVXPY Optimization Time: {:.4f}s".format(time.time()-start))
-            # only the first one is used to advance the simulation
-
-            self.control[:] = [u_mpc[0, 0], u_mpc[1, 0]]
-            self.state = self.predict_next_state(
-                self.state, [self.control[0], self.control[1]], DT
-            )
-
-            # use the optimizer output to preview the predicted state trajectory
-            self.optimized_trajectory = self.ego_to_global(x_mpc)
-            self.plot_sim()
+                # use the optimizer output to preview the predicted state trajectory
+                self.optimized_trajectory = self.ego_to_global(x_mpc)
+                self.plot_sim()
+        except KeyboardInterrupt:
+            pass
 
     def predict_next_state(self, state, u, dt):
         def kinematics_model(x, t, u):
