@@ -1,6 +1,7 @@
 import cvxpy as opt
 import numpy as np
-from vehicle_model import VehicleModel
+
+from .vehicle_model import VehicleModel
 
 np.seterr(divide="ignore", invalid="ignore")
 

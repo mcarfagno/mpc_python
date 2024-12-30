@@ -1,7 +1,7 @@
+numpy<2
 matplotlib
 pybullet
 cvxpy
 dccp
-numpy
 osqp
 scipy
