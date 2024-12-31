@@ -53,10 +53,11 @@ Results:
 
 ![](img/demo.gif)
 
+The settings used for tuning the MPC controller are in the **[mpc_config](./mpc_pybullet_demo/mpcpy/mpc_config.py)** class.
 
 ### Usage
 
-I recomend using the included dockerfile to run the demo, otherwise the requirements can be installed locally in a conda environment.
+The results above can be reproduced both in Docker and Conda.
 
 #### Docker
 
@@ -78,20 +79,27 @@ docker run -it --net=host --ipc=host --privileged \
     bash -c "python3 mpc_demo_pybullet.py"
 ```
 
+* To run the simulation-less demo: change the last command to `python3 mpc_demo_nosim.py`.
+  * this is a simpler demo that does not use pybullet, useful for debugging.
 
-To run the simulation-less demo (simpler demo that does not use pybullet, useful for debugging) change the last command to python3 `mpc_demo_nosim.py`
+In both cases the script will promt the user to press `enter` before starting the demo, pybullet may take a few seconds.
 
-In both cases the script will promt the user for `enter` before starting the demo.
 
-The settings for tuning the MPC controller are in the **[mpc_config](./mpc_pybullet_demo/mpcpy/mpc_config.py)** class.
+#### Conda Environment
 
-#### Requirements
-
-The environment can be repoduced via [conda](https://www.anaconda.com/products/distribution):
+The environment used for this project can be repoduced via [conda](https://www.anaconda.com/products/distribution):
 ```bash
 conda env create -f env.yml
 conda activate simulation
 ```
+
+The demos can be run with:
+```
+python3 mpc_demo_pybullet.py
+python3 mpc_demo_nosim.py
+```
+
+This environment also includes `jupyter lab` to experiment with the jupyter notebooks.
 
 ## References & Special Thanks :star: :
 * [Prof. Borrelli - mpc papers and material](https://borrelli.me.berkeley.edu/pdfpub/IV_KinematicMPC_jason.pdf)
