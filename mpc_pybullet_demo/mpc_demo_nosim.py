@@ -69,10 +69,12 @@ class MPCSim:
         into global(map) frame
 
         Args:
-            mpc_out ():
+            mpc_out (array-like): a matrix of size nx * K, where each column is the state of the vehicle at time T in ego frame
+        Returns:
+            trajectory (array-like): a matrix of sizee 2 * K where each colum is the [X, Y] robot position in the world
         """
-        trajectory = np.zeros((2, self.K))
-        trajectory[:, :] = mpc_out[0:2, 1:]
+        trajectory = np.zeros((2, mpc_out.shape[1]))
+        trajectory[:, :] = mpc_out[0:2, :]
         Rotm = np.array(
             [
                 [np.cos(self.state[3]), np.sin(self.state[3])],
@@ -85,11 +87,6 @@ class MPCSim:
         return trajectory
 
     def run(self):
-        """
-        [TODO:summary]
-
-        [TODO:description]
-        """
         self.plot_sim()
         input("Press Enter to continue...")
         try:

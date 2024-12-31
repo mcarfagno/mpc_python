@@ -118,8 +118,8 @@ class MPC:
             verbose (bool):
 
         Returns:
-            x (array-like): predicted optimal state trajectory
-            u (array-like): predicted optimal control sequence
+            x (array-like): predicted optimal state trajectory of size nx * K+1
+            u (array-like): predicted optimal control sequence of size nu * K
 
         """
         assert len(initial_state) == self.nx
@@ -177,4 +177,4 @@ class MPC:
 
         prob = opt.Problem(opt.Minimize(cost), constr)
         prob.solve(solver=opt.OSQP, warm_start=True, verbose=False)
-        return x.value, u.value
+        return np.array(x.value), np.array(u.value)
