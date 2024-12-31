@@ -68,7 +68,7 @@ docker build -t mpc-demo -f docker/Dockerfile .
 
 * To run the pybullet demo:
 ```bash
-xhost +local:
+xhost +local:docker
 docker run -it --net=host --ipc=host --privileged \
     --env="DISPLAY" \
     --env="QT_X11_NO_MITSHM=1" \
