@@ -5,22 +5,6 @@ This mainly uses **[CVXPY](https://www.cvxpy.org/)** as a framework. This repo c
 
 ## Contents
 
-### Usage
-
-* To run the pybullet demo:
-```bash
-python3 mpc_demo_pybullet.py
-```
-
-* To run the simulation-less demo (simpler demo that does not use pybullet, useful for debugging):
-```bash
-python3 mpc_demo_pybullet.py
-```
-
-In both cases the script will promt the user for `enter` before starting the demo.
-
-The settings for tuning the MPC controller are in the **[mpc_config](./mpc_pybullet_demo/mpcpy/mpc_config.py)** class.
-
 ### Jupyter Notebooks
 
 1. State space model derivation -> analytical and numerical derivaion of the model
@@ -69,19 +53,53 @@ Results:
 
 ![](img/demo.gif)
 
+The settings used for tuning the MPC controller are in the **[mpc_config](./mpc_pybullet_demo/mpcpy/mpc_config.py)** class.
 
-### Requirements
+### Usage
 
-The environment can be repoduced via [conda](https://www.anaconda.com/products/distribution):
+The results above can be reproduced both in Docker and Conda.
+
+#### Docker
+
+From this repository root directory:
+
+```bash
+docker build -t mpc-demo -f docker/Dockerfile .
+```
+
+* To run the pybullet demo:
+```bash
+xhost +local:docker
+docker run -it --net=host --ipc=host --privileged \
+    --env="DISPLAY" \
+    --env="QT_X11_NO_MITSHM=1" \
+    --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
+    --volume="${XAUTHORITY}:/root/.Xauthority" \
+    mpc-demo:latest \
+    bash -c "python3 mpc_demo_pybullet.py"
+```
+
+* To run the simulation-less demo: change the last command to `python3 mpc_demo_nosim.py`.
+  * this is a simpler demo that does not use pybullet, useful for debugging.
+
+In both cases the script will promt the user to press `enter` before starting the demo, pybullet may take a few seconds.
+
+
+#### Conda Environment
+
+The environment used for this project can be repoduced via [conda](https://www.anaconda.com/products/distribution):
 ```bash
 conda env create -f env.yml
 conda activate simulation
 ```
 
-The dependencies for just the python scripts can also be installed using `pip`:
-```bash
-pip3 install --user --requirement requirements.txt
+The demos can be run with:
 ```
+python3 mpc_demo_pybullet.py
+python3 mpc_demo_nosim.py
+```
+
+This environment also includes `jupyter lab` to experiment with the jupyter notebooks.
 
 ## References & Special Thanks :star: :
 * [Prof. Borrelli - mpc papers and material](https://borrelli.me.berkeley.edu/pdfpub/IV_KinematicMPC_jason.pdf)

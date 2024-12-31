@@ -1,6 +1,0 @@
-pybullet==2.7.2
-cvxpy==1.0.28
-dccp
-numpy>=1.22
-osqp==0.6.1
-scipy==1.10.0

@@ -1,0 +1,7 @@
+numpy<2
+matplotlib
+pybullet
+cvxpy
+dccp
+osqp
+scipy

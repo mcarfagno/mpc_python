@@ -1,14 +1,11 @@
-import numpy as np
-import matplotlib.pyplot as plt
-
-from cvxpy_mpc.utils import compute_path_from_wp, get_ref_trajectory
-from cvxpy_mpc import MPC, VehicleModel
-
-import sys
-import time
 import pathlib
-import pybullet as p
 import time
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pybullet as p
+from cvxpy_mpc import MPC, VehicleModel
+from cvxpy_mpc.utils import compute_path_from_wp, get_ref_trajectory
 
 # Params
 TARGET_VEL = 1.0  # m/s
@@ -279,8 +276,8 @@ def run_sim():
 
         # MPC step
         _, u_mpc = mpc.step(ego_state, target, control, verbose=False)
-        control[0] = u_mpc.value[0, 0]
-        control[1] = u_mpc.value[1, 0]
+        control[0] = u_mpc[0, 0]
+        control[1] = u_mpc[1, 0]
 
         elapsed = time.time() - start
         print("CVXPY Optimization Time: {:.4f}s".format(elapsed))

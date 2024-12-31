@@ -1,13 +1,21 @@
+import cvxpy as opt
 import numpy as np
 
-np.seterr(divide="ignore", invalid="ignore")
+from .vehicle_model import VehicleModel
 
-import cvxpy as opt
+np.seterr(divide="ignore", invalid="ignore")
 
 
 class MPC:
     def __init__(
-        self, vehicle, T, DT, state_cost, final_state_cost, input_cost, input_rate_cost
+        self,
+        vehicle: VehicleModel,
+        T: float,
+        DT: float,
+        state_cost: list,
+        final_state_cost: list,
+        input_cost: list,
+        input_rate_cost: list,
     ):
         """
 
@@ -42,20 +50,21 @@ class MPC:
         self.R = np.diag(input_cost)
         self.P = np.diag(input_rate_cost)
 
-    def get_linear_model_matrices(self, x_bar, u_bar):
+    def compute_linear_model_matrices(self, x_bar: list, u_bar: list):
         """
-        Computes the approximated LTI state space model x' = Ax + Bu + C
+        Computes the approximated LTI state space model $x' = Ax + Bu + C$
+        Check out 1.0-lti-system-modelling.ipynb for more details
 
         Args:
-            x_bar (array-like):
-            u_bar (array-like):
+            x_bar (array-like): state space equilibrium point
+            u_bar (array-like): control input equilibrium point
 
         Returns:
-
+            A_lin (np.ndarray): nx*nx matrix
+            B_lin (np.ndarray): nx*nu matrix
+            C_lin (np.ndarray): nx*1 matrix
         """
 
-        x = x_bar[0]
-        y = x_bar[1]
         v = x_bar[2]
         theta = x_bar[3]
 
@@ -95,10 +104,10 @@ class MPC:
 
     def step(
         self,
-        initial_state,
-        target,
-        prev_cmd,
-        verbose=False,
+        initial_state: list,
+        target: list,
+        prev_cmd: list,
+        verbose: bool = False,
     ):
         """
 
@@ -109,6 +118,8 @@ class MPC:
             verbose (bool):
 
         Returns:
+            x (array-like): predicted optimal state trajectory of size nx * K+1
+            u (array-like): predicted optimal control sequence of size nu * K
 
         """
         assert len(initial_state) == self.nx
@@ -124,8 +135,8 @@ class MPC:
         # NOTE: here the state linearization is performed around the starting condition to simplify the controller.
         # This approximation gets more inaccurate as the controller looks at the future.
         # To improve performance we can keep track of previous optimized x, u and compute these matrices for each timestep k
-        # Ak, Bk, Ck = self.get_linear_model_matrices(x_prev[:,k], u_prev[:,k])
-        A, B, C = self.get_linear_model_matrices(initial_state, prev_cmd)
+        # Ak, Bk, Ck = self.compute_linear_model_matrices(x_prev[:,k], u_prev[:,k])
+        A, B, C = self.compute_linear_model_matrices(initial_state, prev_cmd)
 
         # Tracking error cost
         for k in range(self.control_horizon):
@@ -165,5 +176,5 @@ class MPC:
             ]
 
         prob = opt.Problem(opt.Minimize(cost), constr)
-        solution = prob.solve(solver=opt.OSQP, warm_start=True, verbose=False)
-        return x, u
+        prob.solve(solver=opt.OSQP, warm_start=True, verbose=False)
+        return np.array(x.value), np.array(u.value)
