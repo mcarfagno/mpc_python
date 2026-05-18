@@ -18,8 +18,8 @@ class MPC:
         input_cost: list[float],
         input_rate_cost: list[float],
     ) -> None:
-        self.nx: int = 4
-        self.nu: int = 2
+        self.nx: int = 5  # [X, Y, V, Theta, Steer_Angle]
+        self.nu: int = 2  # [Accel, Steer_Rate]
 
         if len(state_cost) != self.nx:
             raise ValueError(f"State Error cost matrix should be of size {self.nx}")
@@ -79,6 +79,7 @@ class MPC:
         self.p_cross_ref_param = opt.Parameter(self.control_horizon + 1)
         self.v_ref_param = opt.Parameter(self.control_horizon + 1)
         self.theta_ref_param = opt.Parameter(self.control_horizon + 1)
+        self.delta_ref_param = opt.Parameter(self.control_horizon + 1)
 
         # optimised vars
         self.prev_cmd: npt.NDArray[np.float64] | None = None
@@ -95,31 +96,35 @@ class MPC:
 
         v = x_bar[2]
         theta = x_bar[3]
+        delta = x_bar[4]
 
         a = u_bar[0]
-        delta = u_bar[1]
+        steer_rate = u_bar[1]
 
+        # compute trigonometric functions once
         ct = np.cos(theta)
         st = np.sin(theta)
         cd = np.cos(delta)
         td = np.tan(delta)
+        L = self.vehicle.wheelbase
 
         A = np.zeros((self.nx, self.nx))
         A[0, 2] = ct
         A[0, 3] = -v * st
+
         A[1, 2] = st
         A[1, 3] = v * ct
-        A[3, 2] = v * td / self.vehicle.wheelbase
+
+        A[3, 2] = td / L
+        A[3, 4] = v / (L * cd**2)
         A_lin = np.eye(self.nx) + self.dt * A
 
         B = np.zeros((self.nx, self.nu))
         B[2, 0] = 1
-        B[3, 1] = v / (self.vehicle.wheelbase * cd**2)
+        B[4, 1] = 1
         B_lin = self.dt * B
 
-        f_xu = np.array([v * ct, v * st, a, v * td / self.vehicle.wheelbase]).reshape(
-            self.nx, 1
-        )
+        f_xu = np.array([v * ct, v * st, a, v * td / L, steer_rate]).reshape(self.nx, 1)
         C_lin = (
             self.dt
             * (
@@ -167,12 +172,15 @@ class MPC:
                 + self.cos_param[k] * self.x[1, k]
                 - self.p_cross_ref_param[k]
             )
+
+            # error vector
             e = opt.vstack(
                 [
                     e_along,
                     e_cross,
                     self.x[2, k] - self.v_ref_param[k],
                     self.x[3, k] - self.theta_ref_param[k],
+                    self.x[4, k] - self.delta_ref_param[k],
                 ]
             )
             cost += opt.quad_form(e, self.Q)
@@ -204,6 +212,7 @@ class MPC:
                 e_cross_f,
                 self.x[2, -1] - self.v_ref_param[-1],
                 self.x[3, -1] - self.theta_ref_param[-1],
+                self.x[4, -1] - self.delta_ref_param[-1],
             ]
         )
         cost += opt.quad_form(e_f, self.Qf)
@@ -211,31 +220,22 @@ class MPC:
         # Initial state
         constr += [self.x[:, 0] == self.initial_state_param]
 
-        # state magnitude
         constr += [opt.abs(self.x[2, :]) <= self.vehicle.max_speed]
+        constr += [opt.abs(self.x[4, :]) <= self.vehicle.max_steer]
 
-        # control magnitude
         constr += [opt.abs(self.u[0, :]) <= self.vehicle.max_acc]
-        constr += [opt.abs(self.u[1, :]) <= self.vehicle.max_steer]
+        constr += [opt.abs(self.u[1, :]) <= self.vehicle.max_steer_rate]
 
         # Actuation rate of change bounds (step 0 uses last cmd)
-        constr += [
-            opt.abs(self.u[0, 0] - self.last_cmd_param[0]) / self.dt
-            <= self.vehicle.max_d_acc
-        ]
-        constr += [
-            opt.abs(self.u[1, 0] - self.last_cmd_param[1]) / self.dt
-            <= self.vehicle.max_d_steer
-        ]
-        for k in range(1, self.control_horizon):
-            constr += [
-                opt.abs(self.u[0, k] - self.u[0, k - 1]) / self.dt
-                <= self.vehicle.max_d_acc
-            ]
-            constr += [
-                opt.abs(self.u[1, k] - self.u[1, k - 1]) / self.dt
-                <= self.vehicle.max_d_steer
-            ]
+        #constr += [
+        #    opt.abs(self.u[0, 0] - self.last_cmd_param[0]) / self.dt
+        #    <= self.vehicle.max_jerk
+        #]
+        #for k in range(1, self.control_horizon):
+        #    constr += [
+        #        opt.abs(self.u[0, k] - self.u[0, k - 1]) / self.dt
+        #        <= self.vehicle.max_jerk
+        #    ]
 
         prob = opt.Problem(opt.Minimize(cost), constr)
         return prob
@@ -258,9 +258,9 @@ class MPC:
 
         # Extract references
         x_ref, y_ref = target[0, :], target[1, :]
-        v_ref, theta_ref = target[2, :], target[3, :]
+        v_ref, theta_ref, delta_ref = target[2, :], target[3, :], target[4, :]
 
-        # Pre-calculate scalar projections using NumPy vectors
+        # Pre-calculate scalar projections using np vectors
         cos_vals = np.cos(theta_ref)
         sin_vals = np.sin(theta_ref)
         p_along_vals = cos_vals * x_ref + sin_vals * y_ref
@@ -273,6 +273,7 @@ class MPC:
         self.p_cross_ref_param.value = p_cross_vals
         self.v_ref_param.value = v_ref
         self.theta_ref_param.value = theta_ref
+        self.delta_ref_param.value = delta_ref
 
         # To compute the system matrices for the LTV system, we may initially think to linearize the vehicle's nonlinear kinematics (like sin/cos/tan
         # steering math) **once** around the current state.
@@ -330,12 +331,24 @@ class MPC:
                 # In this case you want to initialise a recovery behaviour!
                 # to make this simple here I just decelerate
                 print("MPC failed -> Emergency braking!")
+
+                # wipe memory so the next loop cycle resets cleanly
+                self.prev_trajectory = None
+                self.prev_cmd = None
+
                 emergency_u = np.zeros((self.nu, self.control_horizon))
+<<<<<<< Updated upstream
                 v = initial_state[2]
                 for k in range(self.control_horizon):
                     a = -self.vehicle.max_acc if v > 0 else 0.0
                     emergency_u[0, k] = a
                     v = max(0.0, v + a * self.dt)
+=======
+                # TODO: fix this can go reverse
+                emergency_u[0, :] = -self.vehicle.max_acc  # Maximum deceleration
+                emergency_u[1, :] = 0.0  # Straighten wheels
+
+>>>>>>> Stashed changes
                 self.prev_cmd = np.copy(emergency_u)
                 return None, self.prev_cmd
 

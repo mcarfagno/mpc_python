@@ -35,9 +35,7 @@ def compute_path_from_wp(
     return np.vstack((final_xp, final_yp, theta))
 
 
-def get_nn_idx(
-    state: npt.NDArray[np.float64], path: npt.NDArray[np.float64]
-) -> int:
+def get_nn_idx(state: npt.NDArray[np.float64], path: npt.NDArray[np.float64]) -> int:
     """
     Finds the index of the closest element
 
@@ -53,10 +51,12 @@ def get_nn_idx(
     dist = np.hypot(dx, dy)
     nn_idx = np.argmin(dist)
     try:
-        v = np.array([
-            path[0, nn_idx + 1] - path[0, nn_idx],
-            path[1, nn_idx + 1] - path[1, nn_idx],
-        ])
+        v = np.array(
+            [
+                path[0, nn_idx + 1] - path[0, nn_idx],
+                path[1, nn_idx + 1] - path[1, nn_idx],
+            ]
+        )
         assert np.linalg.norm(v) > 0, "zero-length path segment"
         v /= np.linalg.norm(v)
         d = [path[0, nn_idx] - state[0], path[1, nn_idx] - state[1]]
@@ -94,7 +94,7 @@ def get_ref_trajectory(
     K = int(T / DT)
 
     # FIX 1: Allocate K + 1 elements to map exactly from k=0 (initial) to k=K (terminal)
-    xref = np.zeros((4, K + 1))
+    xref = np.zeros((5, K + 1))
     ind = get_nn_idx(state, path)
 
     # Calculate cumulative distance along the path
@@ -113,6 +113,7 @@ def get_ref_trajectory(
     xref[1, :] = np.interp(interp_points, cdist, path[1, :])
     xref[2, :] = target_v
     xref[3, :] = np.interp(interp_points, cdist, path[2, :])
+    xref[4, :] = 0.0  # steer is usually zero
 
     xref_cdist = np.interp(interp_points, cdist, cdist)
     stop_idx = np.where(xref_cdist == cdist[-1])

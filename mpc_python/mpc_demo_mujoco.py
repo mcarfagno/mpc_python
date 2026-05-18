@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import pathlib
-import select
-import sys
 import threading
 import time
 
@@ -33,11 +31,11 @@ class SharedData:
         self.lock: threading.Lock = threading.Lock()
 
         # Core control & state
-        self.state: npt.NDArray[np.float64] = np.zeros(4)
+        self.state: npt.NDArray[np.float64] = np.zeros(5)
         self.goal_reached: bool = False
         self.is_active: bool = True
         self.mpc_accel: float = 0.0
-        self.mpc_steer: float = 0.0
+        self.mpc_steer_rate: float = 0.0
 
         # Telemetry & visualization
         self.x_mpc_world: npt.NDArray[np.float64] | None = None
@@ -48,15 +46,15 @@ def controller_loop(
     mpc: MPC, path: npt.NDArray[np.float64], shared: SharedData
 ) -> None:
 
-    while True:
+    while True:  # steer is usually zero
         start_time = time.time()
 
         # (safely) grab the latest state from the simulation
         with shared.lock:
             if not shared.is_active or shared.goal_reached:
                 break
-            current_state = shared.state.copy()  # Global [X, Y, V, Theta]
-            last_control = (shared.mpc_accel, shared.mpc_steer)
+            current_state = shared.state.copy()  # Global [X, Y, V, Theta, Delta]
+            last_control = (shared.mpc_accel, shared.mpc_steer_rate)
             elapsed = shared.mpc_elapsed
 
         # Check goal using absolute global coordinates
@@ -76,21 +74,33 @@ def controller_loop(
         pred_state = current_state.copy()
         v = pred_state[2]
         theta = pred_state[3]
+        delta = pred_state[4]
         a = last_control[0]
-        delta = last_control[1]
+        delta_dot = last_control[1]
         L = mpc.vehicle.wheelbase
 
         # Integrate physics forward in global space
+        # NOTE: this is just for reference lookup
         pred_state[0] += v * np.cos(theta) * elapsed
         pred_state[1] += v * np.sin(theta) * elapsed
         pred_state[2] += a * elapsed
         pred_state[3] += (v * np.tan(delta) / L) * elapsed
+        pred_state[4] += delta_dot * elapsed
 
         # NOTE: we convert the state in ego frame and we use a ego target
         # so we the optimization problem is a bit easier and we save some solver time
         # Get reference trajectory
         target = get_ref_trajectory(pred_state, path, TARGET_VEL, T, DT)
-        pred_ego_state = [0.0, 0.0, pred_state[2], 0.0]
+        # MPC initial state in ego frame of pred_state
+        pred_ego_state = np.array(
+            [
+                0.0,
+                0.0,
+                pred_state[2],
+                0.0,
+                pred_state[4],
+            ]
+        )
         x_mpc, u_mpc = mpc.solve(pred_ego_state, target, verbose=False)
 
         # Extract the immediate next optimal control actions
@@ -100,7 +110,7 @@ def controller_loop(
         # Safely push results back to the shared object
         with shared.lock:
             shared.mpc_accel = control[0]
-            shared.mpc_steer = control[1]
+            shared.mpc_steer_rate = control[1]
             shared.mpc_elapsed = elapsed
             shared.x_mpc_world = (
                 ego_to_global(pred_state, x_mpc) if x_mpc is not None else None
@@ -228,7 +238,8 @@ def main() -> None:
         80.0,
         10.0,
         20.0,
-    ]  # [Along-track, Cross-track, Velocity, Heading]
+        1.0,
+    ]  # [Along-track, Cross-track, Velocity, Heading, Steer]
     actuation_cost = [10.0, 10.0]
 
     mpc = MPC(
@@ -303,14 +314,16 @@ def main() -> None:
                     d.ctrl[:] = control
                     mujoco.mj_step(m, d)
 
-                current_state = get_state(d, bid)
+                # TODO: add steer to get_state
+                actual_steer = d.qpos[steer_qaddr]  # Radians
+                current_state = np.append(get_state(d, bid), actual_steer)
 
                 # Sync with MPC Thread
                 with shared.lock:
                     shared.state[:] = current_state
                     mpc_elapsed = shared.mpc_elapsed
                     mpc_accel = shared.mpc_accel
-                    mpc_steer = shared.mpc_steer
+                    mpc_steer_rate = shared.mpc_steer_rate
                     x_mpc_world = shared.x_mpc_world
 
                 # Log position etc...
@@ -323,7 +336,7 @@ def main() -> None:
                 heading_rmse = np.sqrt(np.mean(np.square(heading_error_hist)))
 
                 # Update Zero-Order Hold control
-                control[0] = mpc_steer
+                control[0] = current_state[4] + mpc_steer_rate * DT
                 control[1] = current_state[2] + mpc_accel * DT
 
                 # Update camera position to follow the car
@@ -349,7 +362,7 @@ def main() -> None:
                             None,
                             f"MPC Demo\n"
                             f"state:  v {current_state[2]:.2f} m/s  |  steer {actual_steer:.1f} deg\n"
-                            f"MPC:    accel {mpc_accel:.2f} m/s2  |  steer {np.degrees(mpc_steer):.1f} deg  |  {mpc_elapsed*1000:.0f} ms\n"
+                            f"MPC:    accel {mpc_accel:.2f} m/s2  |  steer speed {np.degrees(mpc_steer_rate):.1f} deg  |  {mpc_elapsed*1000:.0f} ms\n"
                             f"error:  CTE {cte:.3f} m  |  heading {np.degrees(heading_err):.1f} deg\n"
                             f"RMSE:   CTE {cte_rmse:.3f} m  |  heading {heading_rmse:.1f} deg\n"
                             f"goal:   {goal_dist:.2f} m\n",
