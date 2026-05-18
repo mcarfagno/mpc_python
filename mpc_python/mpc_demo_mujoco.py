@@ -91,6 +91,7 @@ def controller_loop(
         # so we the optimization problem is a bit easier and we save some solver time
         # Get reference trajectory
         target = get_ref_trajectory(pred_state, path, TARGET_VEL, T, DT)
+
         # MPC initial state in ego frame of pred_state
         pred_ego_state = np.array(
             [
@@ -101,6 +102,7 @@ def controller_loop(
                 pred_state[4],
             ]
         )
+
         x_mpc, u_mpc = mpc.solve(pred_ego_state, target, verbose=False)
 
         # Extract the immediate next optimal control actions

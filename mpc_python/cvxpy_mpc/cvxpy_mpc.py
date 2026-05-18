@@ -227,11 +227,12 @@ class MPC:
         constr += [opt.abs(self.u[1, :]) <= self.vehicle.max_steer_rate]
 
         # Actuation rate of change bounds (step 0 uses last cmd)
-        #constr += [
+
+        # constr += [
         #    opt.abs(self.u[0, 0] - self.last_cmd_param[0]) / self.dt
         #    <= self.vehicle.max_jerk
-        #]
-        #for k in range(1, self.control_horizon):
+        # ]
+        # for k in range(1, self.control_horizon):
         #    constr += [
         #        opt.abs(self.u[0, k] - self.u[0, k - 1]) / self.dt
         #        <= self.vehicle.max_jerk
@@ -337,18 +338,11 @@ class MPC:
                 self.prev_cmd = None
 
                 emergency_u = np.zeros((self.nu, self.control_horizon))
-<<<<<<< Updated upstream
                 v = initial_state[2]
                 for k in range(self.control_horizon):
                     a = -self.vehicle.max_acc if v > 0 else 0.0
                     emergency_u[0, k] = a
                     v = max(0.0, v + a * self.dt)
-=======
-                # TODO: fix this can go reverse
-                emergency_u[0, :] = -self.vehicle.max_acc  # Maximum deceleration
-                emergency_u[1, :] = 0.0  # Straighten wheels
-
->>>>>>> Stashed changes
                 self.prev_cmd = np.copy(emergency_u)
                 return None, self.prev_cmd
 
