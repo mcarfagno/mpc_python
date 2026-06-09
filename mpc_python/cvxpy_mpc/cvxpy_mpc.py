@@ -6,6 +6,7 @@ import cvxpy as opt
 import numpy as np
 import numpy.typing as npt
 import yaml
+import scipy.linalg
 
 
 class MPC:
@@ -97,13 +98,18 @@ class MPC:
         # self.r_matrix: npt.NDArray[np.float64] = np.diag(input_cost_weights)
         # self.rr_matrix: npt.NDArray[np.float64] = np.diag(input_rate_cost_weights)
 
-        self.q_matrix: npt.NDArray[np.float64] = np.diag(np.sqrt(state_cost_weights))
-        self.qf_matrix: npt.NDArray[np.float64] = np.diag(
-            np.sqrt(terminal_cost_weights)
+        # NOTE: we use sum_squares wich is not the same as a quad form
+        self.q_matrix: npt.NDArray[np.float64] = scipy.linalg.cholesky(
+            np.diag(state_cost_weights)
         )
-        self.r_matrix: npt.NDArray[np.float64] = np.diag(np.sqrt(input_cost_weights))
-        self.rr_matrix: npt.NDArray[np.float64] = np.diag(
-            np.sqrt(input_rate_cost_weights)
+        self.qf_matrix: npt.NDArray[np.float64] = scipy.linalg.cholesky(
+            np.diag(terminal_cost_weights)
+        )
+        self.r_matrix: npt.NDArray[np.float64] = scipy.linalg.cholesky(
+            np.diag(input_cost_weights)
+        )
+        self.rr_matrix: npt.NDArray[np.float64] = scipy.linalg.cholesky(
+            np.diag(input_rate_cost_weights)
         )
 
         self._safety_margin: float = obstacle_config["safety_margin"]
@@ -464,10 +470,14 @@ class MPC:
 
             self._problem.solve(
                 solver=opt.CLARABEL,
+                enforce_dpp=True,
                 warm_start=True,
                 verbose=verbose,
                 canon_backend=opt.SCIPY_CANON_BACKEND,
-                enforce_dpp=True,
+                tol_gap_abs=1e-3,  # Loosen absolute duality gap tolerance
+                tol_gap_rel=1e-3,  # Loosen relative duality gap tolerance
+                tol_feas=1e-3,  # Loosen feasibility tolerance
+                max_iter=25,  # Hard cap on interior-point iterations
             )
 
             if self._states.value is None:
