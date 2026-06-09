@@ -477,10 +477,9 @@ class MPC:
                 warm_start=True,
                 verbose=verbose,
                 canon_backend=opt.SCIPY_CANON_BACKEND,
-                tol_gap_abs=1e-3,  # Loosen absolute duality gap tolerance
-                tol_gap_rel=1e-3,  # Loosen relative duality gap tolerance
-                tol_feas=1e-3,  # Loosen feasibility tolerance
-                max_iter=25,  # Hard cap on interior-point iterations
+                tol_gap_abs=1e-3,  # relax tolerances
+                tol_gap_rel=1e-3,
+                tol_feas=1e-3,
             )
 
             if self._states.value is None:
