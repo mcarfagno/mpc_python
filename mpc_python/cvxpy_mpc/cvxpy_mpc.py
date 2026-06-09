@@ -92,10 +92,19 @@ class MPC:
                 f"{self._control_dim}"
             )
 
-        self.q_matrix: npt.NDArray[np.float64] = np.diag(state_cost_weights)
-        self.qf_matrix: npt.NDArray[np.float64] = np.diag(terminal_cost_weights)
-        self.r_matrix: npt.NDArray[np.float64] = np.diag(input_cost_weights)
-        self.rr_matrix: npt.NDArray[np.float64] = np.diag(input_rate_cost_weights)
+        # self.q_matrix: npt.NDArray[np.float64] = np.diag(state_cost_weights)
+        # self.qf_matrix: npt.NDArray[np.float64] = np.diag(terminal_cost_weights)
+        # self.r_matrix: npt.NDArray[np.float64] = np.diag(input_cost_weights)
+        # self.rr_matrix: npt.NDArray[np.float64] = np.diag(input_rate_cost_weights)
+
+        self.q_matrix: npt.NDArray[np.float64] = np.diag(np.sqrt(state_cost_weights))
+        self.qf_matrix: npt.NDArray[np.float64] = np.diag(
+            np.sqrt(terminal_cost_weights)
+        )
+        self.r_matrix: npt.NDArray[np.float64] = np.diag(np.sqrt(input_cost_weights))
+        self.rr_matrix: npt.NDArray[np.float64] = np.diag(
+            np.sqrt(input_rate_cost_weights)
+        )
 
         self._safety_margin: float = obstacle_config["safety_margin"]
         self._slack_penalty: float = (
@@ -249,8 +258,8 @@ class MPC:
                     self._states[3, k] - self._heading_reference[k],
                 ]
             )
-            cost += opt.quad_form(error, self.q_matrix)
-
+            # cost += opt.quad_form(error, self.q_matrix)
+            cost += opt.sum_squares(self.q_matrix @ error)
             # Obstacle half-plane constraint:
             # obstacle avoidance: (px - pobs)*2 > R  in non-convex :(
             # this is linearised as : dot(px - pbos, n) > R
@@ -275,17 +284,22 @@ class MPC:
             ]
             cost += self._slack_penalty * self._obstacle_slack[k]
 
-            cost += opt.quad_form(self._controls[:, k], self.r_matrix)
-
+            # cost += opt.quad_form(self._controls[:, k], self.r_matrix)
+            cost += opt.sum_squares(self.r_matrix @ self._controls[:, k])
             if k == 0:
-                cost += opt.quad_form(
-                    self._controls[:, 0] - self._last_command, self.rr_matrix
+                # cost += opt.quad_form(
+                #    self._controls[:, 0] - self._last_command, self.rr_matrix
+                # )
+                cost += opt.sum_squares(
+                    self.rr_matrix @ (self._controls[:, 0] - self._last_command)
                 )
             else:
-                cost += opt.quad_form(
-                    self._controls[:, k] - self._controls[:, k - 1], self.rr_matrix
+                # cost += opt.quad_form(
+                #     self._controls[:, k] - self._controls[:, k - 1], self.rr_matrix
+                # )
+                cost += opt.sum_squares(
+                    self.rr_matrix @ (self._controls[:, k] - self._controls[:, k - 1])
                 )
-
         terminal_along_track_error = (
             self._cos_reference[-1] * self._states[0, -1]
             + self._sin_reference[-1] * self._states[1, -1]
@@ -304,8 +318,8 @@ class MPC:
                 self._states[3, -1] - self._heading_reference[-1],
             ]
         )
-        cost += opt.quad_form(terminal_error, self.qf_matrix)
-
+        # cost += opt.quad_form(terminal_error, self.qf_matrix)
+        cost += opt.sum_squares(self.qf_matrix @ terminal_error)
         constraints += [self._states[:, 0] == self._initial_state]
 
         constraints += [opt.abs(self._states[2, :]) <= self.max_speed]
@@ -313,14 +327,6 @@ class MPC:
         constraints += [opt.abs(self._controls[0, :]) <= self.max_acc]
         constraints += [opt.abs(self._controls[1, :]) <= self.max_steer]
 
-        constraints += [
-            opt.abs(self._controls[0, 0] - self._last_command[0]) / self.dt
-            <= self.max_d_acc
-        ]
-        constraints += [
-            opt.abs(self._controls[1, 0] - self._last_command[1]) / self.dt
-            <= self.max_d_steer
-        ]
         for k in range(1, self.control_horizon):
             constraints += [
                 opt.abs(self._controls[0, k] - self._controls[0, k - 1]) / self.dt
