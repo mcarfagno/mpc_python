@@ -98,7 +98,8 @@ class MPC:
         # self.r_matrix: npt.NDArray[np.float64] = np.diag(input_cost_weights)
         # self.rr_matrix: npt.NDArray[np.float64] = np.diag(input_rate_cost_weights)
 
-        # NOTE: we use sum_squares wich is not the same as a quad form
+        # NOTE: we use sum_squares wich is not the same as a quad_form(x,Q)
+        # To use sum_squares correctly, you need to pass it a matrix A such that A^T A = Q
         self.q_matrix: npt.NDArray[np.float64] = scipy.linalg.cholesky(
             np.diag(state_cost_weights)
         )
