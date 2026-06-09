@@ -265,7 +265,6 @@ class MPC:
                     self._states[3, k] - self._heading_reference[k],
                 ]
             )
-            # cost += opt.quad_form(error, self.q_matrix)
             cost += opt.sum_squares(self.q_matrix @ error)
             # Obstacle half-plane constraint:
             # obstacle avoidance: (px - pobs)*2 > R  in non-convex :(
@@ -291,19 +290,12 @@ class MPC:
             ]
             cost += self._slack_penalty * self._obstacle_slack[k]
 
-            # cost += opt.quad_form(self._controls[:, k], self.r_matrix)
             cost += opt.sum_squares(self.r_matrix @ self._controls[:, k])
             if k == 0:
-                # cost += opt.quad_form(
-                #    self._controls[:, 0] - self._last_command, self.rr_matrix
-                # )
                 cost += opt.sum_squares(
                     self.rr_matrix @ (self._controls[:, 0] - self._last_command)
                 )
             else:
-                # cost += opt.quad_form(
-                #     self._controls[:, k] - self._controls[:, k - 1], self.rr_matrix
-                # )
                 cost += opt.sum_squares(
                     self.rr_matrix @ (self._controls[:, k] - self._controls[:, k - 1])
                 )
@@ -325,23 +317,25 @@ class MPC:
                 self._states[3, -1] - self._heading_reference[-1],
             ]
         )
-        # cost += opt.quad_form(terminal_error, self.qf_matrix)
         cost += opt.sum_squares(self.qf_matrix @ terminal_error)
+
+        # initial state
         constraints += [self._states[:, 0] == self._initial_state]
 
+        # state bounds
         constraints += [opt.abs(self._states[2, :]) <= self.max_speed]
 
+        # actuation bounds
         constraints += [opt.abs(self._controls[0, :]) <= self.max_acc]
         constraints += [opt.abs(self._controls[1, :]) <= self.max_steer]
-
         for k in range(1, self.control_horizon):
             constraints += [
-                opt.abs(self._controls[0, k] - self._controls[0, k - 1]) / self.dt
-                <= self.max_d_acc
+                opt.abs(self._controls[0, k] - self._controls[0, k - 1])
+                <= self.max_d_acc * self.dt
             ]
             constraints += [
-                opt.abs(self._controls[1, k] - self._controls[1, k - 1]) / self.dt
-                <= self.max_d_steer
+                opt.abs(self._controls[1, k] - self._controls[1, k - 1])
+                <= self.max_d_steer * self.dt
             ]
 
         problem = opt.Problem(opt.Minimize(cost), constraints)
