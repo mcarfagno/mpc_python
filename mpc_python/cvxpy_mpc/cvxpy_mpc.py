@@ -328,6 +328,14 @@ class MPC:
         # actuation bounds
         constraints += [opt.abs(self._controls[0, :]) <= self.max_acc]
         constraints += [opt.abs(self._controls[1, :]) <= self.max_steer]
+        constraints += [
+            opt.abs(self._controls[0, 0] - self._last_command[0])
+            <= self.max_d_acc * self.dt
+        ]
+        constraints += [
+            opt.abs(self._controls[1, 0] - self._last_command[1])
+            <= self.max_d_steer * self.dt
+        ]
         for k in range(1, self.control_horizon):
             constraints += [
                 opt.abs(self._controls[0, k] - self._controls[0, k - 1])
