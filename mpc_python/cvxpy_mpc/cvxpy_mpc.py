@@ -6,7 +6,6 @@ import cvxpy as opt
 import numpy as np
 import numpy.typing as npt
 import yaml
-import scipy.linalg
 
 
 class MPC:
@@ -93,23 +92,15 @@ class MPC:
                 f"{self._control_dim}"
             )
 
-        # self.q_matrix: npt.NDArray[np.float64] = np.diag(state_cost_weights)
-        # self.qf_matrix: npt.NDArray[np.float64] = np.diag(terminal_cost_weights)
-        # self.r_matrix: npt.NDArray[np.float64] = np.diag(input_cost_weights)
-        # self.rr_matrix: npt.NDArray[np.float64] = np.diag(input_rate_cost_weights)
-
-        # NOTE: we use sum_squares wich is not the same as a quad_form(x,Q)
-        # To use sum_squares correctly, you need to pass it a matrix A such that A^T A = Q
-        self.q_matrix: npt.NDArray[np.float64] = scipy.linalg.cholesky(
-            np.diag(state_cost_weights)
-        )
-        self.qf_matrix: npt.NDArray[np.float64] = scipy.linalg.cholesky(
+        # NOTE: we use sum_squares wich is not the same as a quad_form(x,Q), this is for strict DDP compliance
+        # But to use sum_squares correctly, you need to pass it a matrix A such that A^T A = Q
+        # We can get away with sqrt because matrices are diagonal
+        self.q_matrix: npt.NDArray[np.float64] = np.sqrt(np.diag(state_cost_weights))
+        self.qf_matrix: npt.NDArray[np.float64] = np.sqrt(
             np.diag(terminal_cost_weights)
         )
-        self.r_matrix: npt.NDArray[np.float64] = scipy.linalg.cholesky(
-            np.diag(input_cost_weights)
-        )
-        self.rr_matrix: npt.NDArray[np.float64] = scipy.linalg.cholesky(
+        self.r_matrix: npt.NDArray[np.float64] = np.sqrt(np.diag(input_cost_weights))
+        self.rr_matrix: npt.NDArray[np.float64] = np.sqrt(
             np.diag(input_rate_cost_weights)
         )
 
