@@ -113,6 +113,12 @@ class MPC:
 
         self._vehicle_buffer: float = self.width / 2.0 + self._safety_margin
 
+        self.track_width_left: float = vehicle_config.get("track_width_left", 2.0)
+        self.track_width_right: float = vehicle_config.get("track_width_right", 2.0)
+        self.track_slack_penalty: float = weights_config.get(
+            "track_slack_penalty", 1000.0
+        )
+
         # CVXPY vars
         self._states: opt.Variable = opt.Variable(
             (self._state_dim, self.control_horizon + 1), name="states"
@@ -162,6 +168,9 @@ class MPC:
         # This allows in practice to turn the obstacle factor from hard(may cause failures) to soft
         self._obstacle_slack: opt.Variable = opt.Variable(
             self.control_horizon, nonneg=True, name="obstacle_slacks"
+        )
+        self._track_slack: opt.Variable = opt.Variable(
+            self.control_horizon, nonneg=True, name="track_slacks"
         )
 
         self._previous_command: npt.NDArray[np.float64] | None = None
@@ -280,6 +289,17 @@ class MPC:
                 >= self._obstacle_safe_distance[k] - self._obstacle_slack[k]
             ]
             cost += self._slack_penalty * self._obstacle_slack[k]
+
+            # Track boundary soft constraints
+            constraints += [
+                cross_track_error
+                <= (self.track_width_left - self.width / 2.0) + self._track_slack[k]
+            ]
+            constraints += [
+                cross_track_error
+                >= -(self.track_width_right - self.width / 2.0) - self._track_slack[k]
+            ]
+            cost += self.track_slack_penalty * self._track_slack[k]
 
             cost += opt.sum_squares(self.r_matrix @ self._controls[:, k])
             if k == 0:
