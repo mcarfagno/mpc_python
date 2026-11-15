@@ -18,6 +18,7 @@ from cvxpy_mpc.utils import (
     ego_to_global,
     get_ref_trajectory,
     update_path_obstacles,
+    obstacle_to_ego,
 )
 
 import yaml
