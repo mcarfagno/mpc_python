@@ -1,3 +1,4 @@
 *.pyc
 *.DS_Store
 *.ipynb_checkpoints
+MUJOCO_LOG.TXT

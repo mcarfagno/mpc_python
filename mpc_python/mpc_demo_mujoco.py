@@ -18,6 +18,7 @@ from cvxpy_mpc.utils import (
     ego_to_global,
     get_ref_trajectory,
     update_path_obstacles,
+    obstacle_to_ego,
 )
 
 import yaml
@@ -105,20 +106,9 @@ def controller_loop(
 
         # Transform global obstacle to ego frame using the same pred_state
         # that the rest of the MPC ego frame is built from
-        if global_obs is not None:
-            gx, gy, r, vx, vy = global_obs
-            dx = gx - pred_state[0]
-            dy = gy - pred_state[1]
-            ct, st = np.cos(-pred_state[3]), np.sin(-pred_state[3])
-            pred_obstacle = (
-                dx * ct - dy * st,
-                dy * ct + dx * st,
-                r,
-                vx * ct - vy * st,
-                vy * ct + vx * st,
-            )
-        else:
-            pred_obstacle = None
+        pred_obstacle = (
+            obstacle_to_ego(pred_state, global_obs) if global_obs is not None else None
+        )
 
         x_mpc, u_mpc = mpc.solve(
             pred_ego_state, target, verbose=False, obstacle=pred_obstacle
