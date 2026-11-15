@@ -347,7 +347,7 @@ class MPC:
         verbose: bool = False,
         max_iter: int = 3,
         tolerance: float = 1e-2,
-        obstacle: tuple[float, float, float] | None = None,
+        obstacle: tuple[float, float, float, float, float] | None = None,
     ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         assert len(initial_state) == self._state_dim
         assert target.shape == (self._state_dim, self.control_horizon + 1)
@@ -441,8 +441,8 @@ class MPC:
                     # We need a stable point to calculate the normal vector.
                     # Also we use the current belief of the obstacle moving velocity
                     # to predict where its position will be at each k of th horizon
-                    dx = x_ref[k + 1] - obstacle_x - obstacle_velocity_x * k * self.dt
-                    dy = y_ref[k + 1] - obstacle_y - obstacle_velocity_y * k * self.dt
+                    dx = x_ref[k + 1] - obstacle_x - obstacle_velocity_x * (k + 1) * self.dt
+                    dy = y_ref[k + 1] - obstacle_y - obstacle_velocity_y * (k + 1) * self.dt
 
                     dist = np.hypot(dx, dy)
                     dist = dist if dist > 1e-5 else 1e-5

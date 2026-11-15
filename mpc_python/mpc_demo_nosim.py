@@ -44,10 +44,9 @@ class MPCSim:
 
         self.mpc: MPC = MPC(
             "config/mpc.yaml",
-            horizon_time=4.0,
         )
         self.K: int = self.mpc.control_horizon
-        self.detected_obs: tuple[float, float, float] | None = None
+        self.detected_obs: tuple[float, float, float, float, float] | None = None
 
         # Path from waypoint interpolation
         self.path: npt.NDArray[np.float64] = compute_path_from_wp(
@@ -227,20 +226,11 @@ class MPCSim:
                 curr_state = np.array([0, 0, self.state[2], 0])
 
                 # Transform global obstacle to ego frame
-                if self.detected_obs is not None:
-                    gx, gy, r, vx, vy = self.detected_obs
-                    dx = gx - self.state[0]
-                    dy = gy - self.state[1]
-                    ct, st = np.cos(-self.state[3]), np.sin(-self.state[3])
-                    obs_ego = (
-                        dx * ct - dy * st,
-                        dy * ct + dx * st,
-                        r,
-                        vx * ct - vy * st,
-                        vy * ct + vx * st,
-                    )
-                else:
-                    obs_ego = None
+                obs_ego = (
+                    obstacle_to_ego(self.state, self.detected_obs)
+                    if self.detected_obs is not None
+                    else None
+                )
 
                 t0 = time.perf_counter()
                 x_mpc, u_mpc = self.mpc.solve(

@@ -170,6 +170,29 @@ def ego_to_global(
     traj[1, :] += state[1]
     return traj
 
+def obstacle_to_ego(
+    state: npt.NDArray[np.float64],
+    obstacle: tuple[float, float, float, float, float],
+) -> tuple[float, float, float, float, float]:
+    """Transform (x, y, r, vx, vy) from global frame into the vehicle ego frame.
+
+    Args:
+        state: Vehicle state [x, y, v, heading] in global frame.
+        obstacle: Obstacle state [x, y, r, vx, vy] in global frame.
+
+    Returns
+        Obstacle state [x, y, r, vx, vy] in ego vehicle state.
+    """
+    gx, gy, r, vx, vy = obstacle
+    dx, dy = gx - state[0], gy - state[1]
+    ct, st = np.cos(-state[3]), np.sin(-state[3])
+    return (
+        dx * ct - dy * st,
+        dy * ct + dx * st,
+        r,
+        vx * ct - vy * st,
+        vy * ct + vx * st,
+    )
 
 def compute_path_arc_lengths(
     path: npt.NDArray[np.float64],
