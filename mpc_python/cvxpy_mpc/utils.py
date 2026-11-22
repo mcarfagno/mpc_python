@@ -38,8 +38,7 @@ def compute_path_from_wp(
 
     dx = np.gradient(final_xp)
     dy = np.gradient(final_yp)
-    theta = np.arctan2(dy, dx)
-
+    theta = np.unwrap(np.arctan2(dy, dx))
     return np.vstack((final_xp, final_yp, theta))
 
 

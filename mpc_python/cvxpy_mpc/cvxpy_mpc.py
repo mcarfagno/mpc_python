@@ -193,7 +193,7 @@ class MPC:
         A[0, 3] = -v * st
         A[1, 2] = st
         A[1, 3] = v * ct
-        A[3, 2] = v * td / self.wheelbase
+        A[3, 2] = td / self.wheelbase
         A_lin = np.eye(self._state_dim) + self.dt * A
 
         B = np.zeros((self._state_dim, self._control_dim))
@@ -441,9 +441,12 @@ class MPC:
                     # We need a stable point to calculate the normal vector.
                     # Also we use the current belief of the obstacle moving velocity
                     # to predict where its position will be at each k of th horizon
-                    dx = x_ref[k + 1] - obstacle_x - obstacle_velocity_x * (k + 1) * self.dt
-                    dy = y_ref[k + 1] - obstacle_y - obstacle_velocity_y * (k + 1) * self.dt
+                    t = (k + 1) * self.dt
+                    obs_x_k = obstacle_x + obstacle_velocity_x * t
+                    obs_y_k = obstacle_y + obstacle_velocity_y * t
 
+                    dx = x_ref[k + 1] - obs_x_k
+                    dy = y_ref[k + 1] - obs_y_k
                     dist = np.hypot(dx, dy)
                     dist = dist if dist > 1e-5 else 1e-5
                     # [x,y] components of vector n
@@ -453,7 +456,7 @@ class MPC:
                     obstacle_normals_x[k] = normal_x
                     obstacle_normals_y[k] = normal_y
                     obstacle_distances[k] = (
-                        normal_x * obstacle_x + normal_y * obstacle_y + obstacle_radius
+                        normal_x * obs_x_k + normal_y * obs_y_k + obstacle_radius
                     )
 
             self._obstacle_normal_x.value = obstacle_normals_x

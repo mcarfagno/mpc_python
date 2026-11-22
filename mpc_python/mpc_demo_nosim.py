@@ -21,7 +21,6 @@ from cvxpy_mpc.utils import (
     update_path_obstacles,
     obstacle_to_ego,
 )
-from scipy.integrate import odeint
 import yaml
 
 
@@ -247,8 +246,9 @@ class MPCSim:
 
                 # Convert MPC preview from ego->world BEFORE advancing state,
                 # so it's anchored to the state it was computed for
-                self.optimized_trajectory = ego_to_global(self.state, x_mpc)
-
+                self.optimized_trajectory = (
+                    ego_to_global(self.state, x_mpc) if x_mpc is not None else None
+                )
                 self.state = self.predict_next_state(
                     self.state, [self.control[0], self.control[1]], self.mpc.dt
                 )
@@ -270,20 +270,16 @@ class MPCSim:
         u: npt.NDArray[np.float64] | list[float],
         dt: float,
     ) -> npt.NDArray[np.float64]:
-        L = self.mpc.wheelbase
-
-        def kinematics_model(x, t, u):
-            dxdt = x[2] * np.cos(x[3])
-            dydt = x[2] * np.sin(x[3])
-            dvdt = u[0]
-            dthetadt = x[2] * np.tan(u[1]) / L
-            dqdt = [dxdt, dydt, dvdt, dthetadt]
-            return dqdt
-
-        # solve ODE
-        tspan = [0, dt]
-        new_state = odeint(kinematics_model, state, tspan, args=(u[:],))[1]
-        return new_state
+        x, y, v, theta = state
+        a, delta = u[0], u[1]
+        return np.array(
+            [
+                x + v * np.cos(theta) * dt,
+                y + v * np.sin(theta) * dt,
+                v + a * dt,
+                theta + v * np.tan(delta) / self.mpc.wheelbase * dt,
+            ]
+        )
 
     def plot_sim(self) -> None:
         # Title
