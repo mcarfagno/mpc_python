@@ -7,7 +7,7 @@
   </asset>
   <default>
       <default class="buddy_wheel">
-      <geom fitscale="1.2" type="ellipsoid" friction="2 0.005 0.0001" contype="1" conaffinity="0" mesh="buddy_mushr_wheel" mass="0.498952"/>
+      <geom fitscale="1.2" type="sphere" friction="2 0.005 0.0001" contype="1" conaffinity="0" mesh="buddy_mushr_wheel" mass="0.498952"/>
     </default>
     <default class="buddy_steering">
       <joint type="hinge" axis="0 0 1" limited="true" frictionloss="0.01" damping="0.001" armature="0.0002" range="-0.38 0.38"/>
