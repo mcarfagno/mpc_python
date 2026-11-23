@@ -246,10 +246,31 @@ class MPC:
             # XY tracking does NOT make much sense in autonomous driving...
             # Instead we care how much off to the side we are w.r.t the track
             #
-            # The standard cross-track and along-track errors are calculated by projecting position errors onto the track point
-            # $\theta_{\text{ref}}$:$$e_{\text{along}} = \cos(\theta_{\text{ref}})(x - x_{\text{ref}}) + \sin(\theta_{\text{ref}})(y - y_{\text{ref}})
-            # $e_{\text{cross}} = -\sin(\theta_{\text{ref}})(x - x_{\text{ref}}) + \cos(\theta_{\text{ref}})(y - y_{\text{ref}})$
-            # we expand that and get the following Algebraic problem:
+            # The standard cross-track and along-track errors are calculated
+            # by projecting position errors onto the track point:
+            # Here is the CTE:
+            #                   + e
+            #                   |
+            #                   n = (-sinθ, cosθ)
+            #                   |
+            #                   * p  (vehicle)
+            #                  /|
+            #                 / |  e = cross-track error
+            #                /  |
+            #   ============*---+---------------->  t = (cosθ, sinθ)
+            #              p_ref
+            #                   |
+            #                   - e
+            #
+            #
+            # So e = n · (p - p_ref)  = -sinθ (x - x_ref) + cosθ (y - y_ref)
+            # e = -sinθ (x - x_ref) + cosθ (y - y_ref)
+            #   = [-sinθ · x + cosθ · y]   -   [-sinθ · x_ref + cosθ · y_ref]
+            #     ─────────────────────         ─────────────────────────────
+            #     states (decision vars)        _cross_reference[k], a parameter
+            #                                   precomputed once in solve()
+            # where + to the left of the path, - to the right
+
 
             # Algebraic along-track and cross-track expressions
             # We will fill the values when the reference is provided, that is why they are params
