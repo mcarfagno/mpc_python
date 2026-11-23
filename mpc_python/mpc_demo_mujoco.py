@@ -146,8 +146,18 @@ def get_state(data: mujoco.MjData, bid: int) -> npt.NDArray[np.float64]:
     speed = np.linalg.norm(data.qvel[0:2])
     return np.array([data.xpos[bid][0], data.xpos[bid][1], speed, yaw])
 
-
-def draw_path(viewer: mujoco.viewer.MjViewer, path: npt.NDArray[np.float64]) -> None:
+def draw_path(
+    viewer: mujoco.viewer.MjViewer,
+    path: npt.NDArray[np.float64],
+    offset: float = 0.0,
+    rgba: npt.NDArray[np.float32] | None = None,
+) -> None:
+    if rgba is None:
+        rgba = np.array([0, 0.6, 1, 1], dtype=np.float32)
+    normal_x = -np.sin(path[2, :])
+    normal_y = np.cos(path[2, :])
+    xs = path[0, :] + offset * normal_x
+    ys = path[1, :] + offset * normal_y
     for i in range(path.shape[1] - 1):
         if viewer.user_scn.ngeom >= viewer.user_scn.maxgeom:
             break
@@ -155,9 +165,8 @@ def draw_path(viewer: mujoco.viewer.MjViewer, path: npt.NDArray[np.float64]) -> 
         # next geometry slot
         g = viewer.user_scn.geoms[viewer.user_scn.ngeom]
 
-        p1 = np.array([path[0, i], path[1, i], 0.03], dtype=np.float64)
-        p2 = np.array([path[0, i + 1], path[1, i + 1], 0.03], dtype=np.float64)
-
+        p1 = np.array([xs[i], ys[i], 0.03], dtype=np.float64)
+        p2 = np.array([xs[i + 1], ys[i + 1], 0.03], dtype=np.float64)
         mujoco.mjv_initGeom(
             g,
             type=mujoco.mjtGeom.mjGEOM_CAPSULE,
@@ -166,7 +175,7 @@ def draw_path(viewer: mujoco.viewer.MjViewer, path: npt.NDArray[np.float64]) -> 
             ),  # [radius, unused, unused]
             pos=np.zeros(3, dtype=np.float64),
             mat=np.eye(3).ravel(),
-            rgba=np.array([0, 0.6, 1, 1], dtype=np.float32),
+            rgba=rgba,
         )
 
         # mujoco handles the vector math to stretch it between p1 and p2
@@ -472,6 +481,11 @@ def main() -> None:
                 # re-draw markers
                 viewer.user_scn.ngeom = 0
                 draw_path(viewer, path)
+                if mpc.track_half_width > 0.0:
+                    inner = max(mpc.track_half_width - mpc._vehicle_buffer, 0.0)
+                    bound = np.array([0.45, 0.45, 0.45, 1.0], dtype=np.float32)
+                    draw_path(viewer, path, inner, bound)
+                    draw_path(viewer, path, -inner, bound)
                 if path_obstacles:
                     draw_obstacle(viewer, dynamic_obstacle_list)
                     draw_sensor_fov(
