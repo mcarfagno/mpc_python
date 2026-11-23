@@ -35,3 +35,7 @@ controller:
     # Using a high "slack" value prevents the MPC solver from crashing (infeasible solution) 
     # if an obstacle cannot be avoided perfectly, while heavily forcing the optimizer to choose safety first.
     slack_penalty: 100000
+
+  track:
+    half_width: 1.25    # m from centerline to lane edge. 0 disables.
+    slack_penalty: 1000 # softer than obstacle slack

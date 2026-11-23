@@ -113,6 +113,12 @@ class MPC:
 
         self._vehicle_buffer: float = self.width / 2.0 + self._safety_margin
 
+        track_config = config_data["controller"].get("track", {})
+        self.track_half_width: float = float(track_config.get("half_width") or 0.0)
+        self._track_slack_penalty: float = float(
+            track_config.get("slack_penalty", self._slack_penalty)
+        )
+
         # CVXPY vars
         self._states: opt.Variable = opt.Variable(
             (self._state_dim, self.control_horizon + 1), name="states"
