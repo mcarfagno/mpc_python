@@ -84,6 +84,23 @@ class MPCSim:
             marker=".",
             label="reference track",
         )
+        if self.mpc.track_half_width > 0.0:
+            inner = max(self.mpc.track_half_width - self.mpc._vehicle_buffer, 0.0)
+            normal_x = -np.sin(self.path[2, :])
+            normal_y = np.cos(self.path[2, :])
+            self.ax_main.plot(
+                self.path[0, :] + inner * normal_x,
+                self.path[1, :] + inner * normal_y,
+                c="tab:gray",
+                lw=1,
+                label="track bound",
+            )
+            self.ax_main.plot(
+                self.path[0, :] - inner * normal_x,
+                self.path[1, :] - inner * normal_y,
+                c="tab:gray",
+                lw=1,
+            )
         x_pad, y_pad = 1.0, 1.0
         self.ax_main.set_xlim(
             self.path[0, :].min() - x_pad, self.path[0, :].max() + x_pad
