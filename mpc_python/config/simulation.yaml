@@ -9,9 +9,6 @@ path:
   waypoints_y: [0, 0, 2, 4, 3, 3, -1, -6, -2, -2]
   interpolation_step: 0.05
 
-# NOTE: avoid 0.0 lateral offset.
-# The half-plane approximation issue:
-# obstacle center on the reference path centerline breaks the normals.
 obstacles:  # set to [] to disable obstacle avoidance
   - distance: 3.0 # along path lenght
     speed: 0.1 # along path, set to 0.0 for static obstacles [m/s]

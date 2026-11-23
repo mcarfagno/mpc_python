@@ -172,6 +172,7 @@ class MPC:
         self._obstacle_slack: opt.Variable = opt.Variable(
             self.control_horizon, nonneg=True, name="obstacle_slacks"
         )
+        self._obstacle_side: float = 1.0  # +1 = pass left when the obstacle center is on the path
         # One slack for the whole lane. Reuses the cross-track error, so the
         # corridor adds no parameters and one variable.
         self._track_slack: opt.Variable | None = (
@@ -438,6 +439,49 @@ class MPC:
         self._velocity_reference.value = v_ref
         self._heading_reference.value = theta_ref
 
+        # Obstacle half-planes. They only depend on the reference and the
+        # obstacle, not on the linearization guess, so fill them once here.
+        # With no obstacle the plane is far away and the constraint is trivial.
+        normal_x = np.ones(self.control_horizon)
+        normal_y = np.zeros(self.control_horizon)
+        distances = np.full(self.control_horizon, -1000.0)
+        if obstacle is not None:
+            # Remember which side of the obstacle the vehicle is on. Used only
+            # when the obstacle sits on the reference and the normal below
+            # would otherwise flip or collapse.
+            lat = (
+                -sin_values[0] * (initial_state[0] - obstacle_x)
+                + cos_values[0] * (initial_state[1] - obstacle_y)
+            )
+            if abs(lat) >= 0.05:
+                self._obstacle_side = 1.0 if lat > 0.0 else -1.0
+            for k in range(self.control_horizon):
+                # The constraint acts on state k+1, so predict the obstacle there.
+                obs_x = obstacle_x + obstacle_velocity_x * (k + 1) * self.dt
+                obs_y = obstacle_y + obstacle_velocity_y * (k + 1) * self.dt
+                dx = x_ref[k + 1] - obs_x
+                dy = y_ref[k + 1] - obs_y
+                dist = np.hypot(dx, dy)
+                # Signed distance of the obstacle to the left of the path.
+                lateral = -sin_values[k + 1] * (obs_x - x_ref[k + 1]) + cos_values[
+                    k + 1
+                ] * (obs_y - y_ref[k + 1])
+                if dist < 0.05 or abs(lateral) < 0.05:
+                    # On the centerline: hold the chosen side with the path normal.
+                    nx = self._obstacle_side * -sin_values[k + 1]
+                    ny = self._obstacle_side * cos_values[k + 1]
+                else:
+                    # Off the centerline: normal points obstacle -> reference.
+                    nx = dx / dist
+                    ny = dy / dist
+                normal_x[k] = nx
+                normal_y[k] = ny
+                distances[k] = nx * obs_x + ny * obs_y + obstacle_radius
+
+        self._obstacle_normal_x.value = normal_x
+        self._obstacle_normal_y.value = normal_y
+        self._obstacle_safe_distance.value = distances + self._vehicle_buffer
+
         # To compute the system matrices for the LTV system, we may initially think to linearize the vehicle's nonlinear kinematics (like sin/cos/tan
         # steering math) **once** around the current state.
         # A, B, C = self.compute_linear_model_matrices(initial_state, prev_cmd)
@@ -479,44 +523,6 @@ class MPC:
                 self._A_params[k].value = A_k
                 self._B_params[k].value = B_k
                 self._C_params[k].value = C_k
-
-            # Obstacle half-plane params (based on x_guess at step k+1)
-            obstacle_normals_x = np.zeros(self.control_horizon)
-            obstacle_normals_y = np.zeros(self.control_horizon)
-            obstacle_distances = np.zeros(self.control_horizon)
-            for k in range(self.control_horizon):
-                if obstacle is None:
-                    # turn this in something trivial for the optimiser
-                    obstacle_normals_x[k] = 1.0
-                    obstacle_normals_y[k] = 0.0
-                    obstacle_distances[k] = -1000.0
-                else:
-                    # We need a stable point to calculate the normal vector.
-                    # Also we use the current belief of the obstacle moving velocity
-                    # to predict where its position will be at each k of th horizon
-                    t = (k + 1) * self.dt
-                    obs_x_k = obstacle_x + obstacle_velocity_x * t
-                    obs_y_k = obstacle_y + obstacle_velocity_y * t
-
-                    dx = x_ref[k + 1] - obs_x_k
-                    dy = y_ref[k + 1] - obs_y_k
-                    dist = np.hypot(dx, dy)
-                    dist = dist if dist > 1e-5 else 1e-5
-                    # [x,y] components of vector n
-                    normal_x = dx / dist
-                    normal_y = dy / dist
-
-                    obstacle_normals_x[k] = normal_x
-                    obstacle_normals_y[k] = normal_y
-                    obstacle_distances[k] = (
-                        normal_x * obs_x_k + normal_y * obs_y_k + obstacle_radius
-                    )
-
-            self._obstacle_normal_x.value = obstacle_normals_x
-            self._obstacle_normal_y.value = obstacle_normals_y
-            self._obstacle_safe_distance.value = (
-                obstacle_distances + self._vehicle_buffer
-            )
 
             self._problem.solve(
                 solver=opt.CLARABEL,
