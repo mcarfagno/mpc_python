@@ -161,6 +161,15 @@ class MPC:
         self._obstacle_safe_distance = opt.Parameter(
             self.control_horizon, name="obs_dist"
         )
+
+        # Track params (also half-plane linearization)
+        self._track_normal_x = opt.Parameter(self.control_horizon, name="track_nx")
+        self._track_normal_y = opt.Parameter(self.control_horizon, name="track_ny")
+        self._track_left_bound = opt.Parameter(self.control_horizon, name="track_left")
+        self._track_right_bound = opt.Parameter(
+            self.control_horizon, name="track_right"
+        )
+
         # In optimization, a "slack" variable is a mathematical fudge factor.
         # Instead of treating the obstacle as an unyielding concrete wall,
         # we treat it as a stiff rubber wall. This variable tracks *how much*
@@ -169,7 +178,12 @@ class MPC:
         self._obstacle_slack: opt.Variable = opt.Variable(
             self.control_horizon, nonneg=True, name="obstacle_slacks"
         )
-
+        self._track_slack_left: opt.Variable = opt.Variable(
+            self.control_horizon, nonneg=True, name="track_slack_left"
+        )
+        self._track_slack_right: opt.Variable = opt.Variable(
+            self.control_horizon, nonneg=True, name="track_slack_right"
+        )
         self._previous_command: npt.NDArray[np.float64] | None = None
         self._previous_trajectory: npt.NDArray[np.float64] | None = None
 
@@ -287,6 +301,19 @@ class MPC:
             ]
             cost += self._slack_penalty * self._obstacle_slack[k]
 
+            # Lateral distance <= Max_Distance is also a soft constraint
+            lateral = (
+                self._track_normal_x[k] * self._states[0, k + 1]
+                + self._track_normal_y[k] * self._states[1, k + 1]
+            )
+            constraints += [
+                lateral <= self._track_left_bound[k] + self._track_slack_left[k],
+                lateral >= self._track_right_bound[k] - self._track_slack_right[k],
+            ]
+            cost += self._track_slack_penalty * (
+                self._track_slack_left[k] + self._track_slack_right[k]
+            )
+
             cost += opt.sum_squares(self.r_matrix @ self._controls[:, k])
             if k == 0:
                 cost += opt.sum_squares(
@@ -390,6 +417,23 @@ class MPC:
         self._cross_reference.value = cross_projections
         self._velocity_reference.value = v_ref
         self._heading_reference.value = theta_ref
+
+        # The lane is two soft half-planes around the path tangent. 
+        if self.track_half_width > 0.0:
+            nx = -np.sin(theta_ref[1:])
+            ny = np.cos(theta_ref[1:])
+            center = nx * x_ref[1:] + ny * y_ref[1:]
+            # be aware of vehicle width
+            inner = max(self.track_half_width - self._vehicle_buffer, 0.0)
+            self._track_normal_x.value = nx
+            self._track_normal_y.value = ny
+            self._track_left_bound.value = center + inner
+            self._track_right_bound.value = center - inner
+        else:
+            self._track_normal_x.value = np.zeros(self.control_horizon)
+            self._track_normal_y.value = np.zeros(self.control_horizon)
+            self._track_left_bound.value = np.full(self.control_horizon, 1000.0)
+            self._track_right_bound.value = np.full(self.control_horizon, -1000.0)
 
         # To compute the system matrices for the LTV system, we may initially think to linearize the vehicle's nonlinear kinematics (like sin/cos/tan
         # steering math) **once** around the current state.
