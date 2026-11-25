@@ -37,5 +37,5 @@ controller:
     slack_penalty: 100000
 
   track:
-    half_width: 1.25    # m from centerline to lane edge. 0 disables.
+    half_width: 0.80    # m from centerline to lane edge. 0 disables.
     slack_penalty: 1000 # softer than obstacle slack

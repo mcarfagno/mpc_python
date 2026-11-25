@@ -446,34 +446,42 @@ class MPC:
         normal_y = np.zeros(self.control_horizon)
         distances = np.full(self.control_horizon, -1000.0)
         if obstacle is not None:
-            # Remember which side of the obstacle the vehicle is on. Used only
-            # when the obstacle sits on the reference and the normal below
-            # would otherwise flip or collapse.
-            lat = (
-                -sin_values[0] * (initial_state[0] - obstacle_x)
-                + cos_values[0] * (initial_state[1] - obstacle_y)
-            )
-            if abs(lat) >= 0.05:
-                self._obstacle_side = 1.0 if lat > 0.0 else -1.0
+            ks = np.arange(1, self.control_horizon + 1)
+            obs_xs = obstacle_x + obstacle_velocity_x * ks * self.dt
+            obs_ys = obstacle_y + obstacle_velocity_y * ks * self.dt
+            # Pick the passing side at the horizon step closest to the obstacle;
+            # fall back to the vehicle's current side if the obstacle sits on the centerline.
+            k_obs = int(np.argmin(np.hypot(x_ref[1:] - obs_xs, y_ref[1:] - obs_ys)))
+            obs_lat = -sin_values[k_obs + 1] * (
+                obs_xs[k_obs] - x_ref[k_obs + 1]
+            ) + cos_values[k_obs + 1] * (obs_ys[k_obs] - y_ref[k_obs + 1])
+            if abs(obs_lat) >= 0.05:
+                self._obstacle_side = -1.0 if obs_lat > 0.0 else 1.0
+            else:
+                lat = (
+                    -sin_values[0] * (initial_state[0] - obstacle_x)
+                    + cos_values[0] * (initial_state[1] - obstacle_y)
+                )
+                if abs(lat) >= 0.05:
+                    self._obstacle_side = 1.0 if lat > 0.0 else -1.0
+
             for k in range(self.control_horizon):
                 # The constraint acts on state k+1, so predict the obstacle there.
-                obs_x = obstacle_x + obstacle_velocity_x * (k + 1) * self.dt
-                obs_y = obstacle_y + obstacle_velocity_y * (k + 1) * self.dt
+                obs_x = obs_xs[k]
+                obs_y = obs_ys[k]
                 dx = x_ref[k + 1] - obs_x
                 dy = y_ref[k + 1] - obs_y
-                dist = np.hypot(dx, dy)
-                # Signed distance of the obstacle to the left of the path.
-                lateral = -sin_values[k + 1] * (obs_x - x_ref[k + 1]) + cos_values[
-                    k + 1
-                ] * (obs_y - y_ref[k + 1])
-                if dist < 0.05 or abs(lateral) < 0.05:
-                    # On the centerline: hold the chosen side with the path normal.
-                    nx = self._obstacle_side * -sin_values[k + 1]
-                    ny = self._obstacle_side * cos_values[k + 1]
-                else:
-                    # Off the centerline: normal points obstacle -> reference.
-                    nx = dx / dist
-                    ny = dy / dist
+                ct, st = cos_values[k + 1], sin_values[k + 1]
+                # Decompose (ref - obs) in path frame and keep a minimum lateral
+                # bias on the chosen side so normals stay continuous without flipping.
+                v_along = dx * ct + dy * st
+                v_lat = -dx * st + dy * ct
+                v_lat = self._obstacle_side * max(self._obstacle_side * v_lat, 0.15)
+                nx_raw = v_along * ct - v_lat * st
+                ny_raw = v_along * st + v_lat * ct
+                norm = np.hypot(nx_raw, ny_raw)
+                nx = nx_raw / norm
+                ny = ny_raw / norm
                 normal_x[k] = nx
                 normal_y[k] = ny
                 distances[k] = nx * obs_x + ny * obs_y + obstacle_radius
