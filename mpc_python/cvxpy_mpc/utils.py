@@ -340,14 +340,20 @@ def detect_obstacle_camera(
         if dist_to_edge > max_range:
             continue
 
-        # Normalize the relative angle to [-pi, pi]
-        rel_angle = (np.arctan2(dy, dx) - robot_heading + np.pi) % (2.0 * np.pi) - np.pi
-        angle_to_obs_center = abs(rel_angle)
-        angular_radius = np.arcsin(obs_r / d)
+        if d <= obs_r:
+            in_fov = True
+        else:
+            # Normalize the relative angle to [-pi, pi]
+            rel_angle = (
+                np.arctan2(dy, dx) - robot_heading + np.pi
+            ) % (2.0 * np.pi) - np.pi
+            angle_to_obs_center = abs(rel_angle)
+            angular_radius = np.arcsin(obs_r / d)
 
-        # Check if the closest edge of the obstacle falls within half the FOV
-        if (angle_to_obs_center - angular_radius) <= (fov_rad / 2.0):
+            # Check if the closest edge of the obstacle falls within half the FOV
+            in_fov = (angle_to_obs_center - angular_radius) <= (fov_rad / 2.0)
 
+        if in_fov:
             # We track the closest obstacle by its closest EDGE, not its center
             if dist_to_edge < closest_dist:
                 closest_dist = dist_to_edge
