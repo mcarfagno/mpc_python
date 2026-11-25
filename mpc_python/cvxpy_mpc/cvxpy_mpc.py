@@ -449,8 +449,8 @@ class MPC:
             ks = np.arange(1, self.control_horizon + 1)
             obs_xs = obstacle_x + obstacle_velocity_x * ks * self.dt
             obs_ys = obstacle_y + obstacle_velocity_y * ks * self.dt
-            # Pick the passing side at the horizon step closest to the obstacle;
-            # fall back to the vehicle's current side if the obstacle sits on the centerline.
+            
+            # Pick the passing side at reference point closest to the obstacle;
             k_obs = int(np.argmin(np.hypot(x_ref[1:] - obs_xs, y_ref[1:] - obs_ys)))
             obs_lat = -sin_values[k_obs + 1] * (
                 obs_xs[k_obs] - x_ref[k_obs + 1]
@@ -458,24 +458,24 @@ class MPC:
             if abs(obs_lat) >= 0.05:
                 self._obstacle_side = -1.0 if obs_lat > 0.0 else 1.0
             else:
-                lat = (
+                # fall back to the vehicle's current side if the obstacle sits on the centerline.
+                veh_lat = (
                     -sin_values[0] * (initial_state[0] - obstacle_x)
                     + cos_values[0] * (initial_state[1] - obstacle_y)
                 )
-                if abs(lat) >= 0.05:
-                    self._obstacle_side = 1.0 if lat > 0.0 else -1.0
+                if abs(veh_lat) >= 0.05:
+                    self._obstacle_side = 1.0 if veh_lat > 0.0 else -1.0
 
             for k in range(self.control_horizon):
                 # The constraint acts on state k+1, so predict the obstacle there.
-                obs_x = obs_xs[k]
-                obs_y = obs_ys[k]
-                dx = x_ref[k + 1] - obs_x
-                dy = y_ref[k + 1] - obs_y
+                dx = x_ref[k + 1] -  obs_xs[k]
+                dy = y_ref[k + 1] - obs_ys[k]
                 ct, st = cos_values[k + 1], sin_values[k + 1]
-                # Decompose (ref - obs) in path frame and keep a minimum lateral
-                # bias on the chosen side so normals stay continuous without flipping.
+                # Decompose (ref - obs) in path frame 
                 v_along = dx * ct + dy * st
                 v_lat = -dx * st + dy * ct
+                # keep a minimum lateral bias on the chosen side
+                # so normals stay continuous without flipping.
                 v_lat = self._obstacle_side * max(self._obstacle_side * v_lat, 0.15)
                 nx_raw = v_along * ct - v_lat * st
                 ny_raw = v_along * st + v_lat * ct
@@ -484,7 +484,7 @@ class MPC:
                 ny = ny_raw / norm
                 normal_x[k] = nx
                 normal_y[k] = ny
-                distances[k] = nx * obs_x + ny * obs_y + obstacle_radius
+                distances[k] = nx * obs_xs[k] + ny * obs_ys[k] + obstacle_radius
 
         self._obstacle_normal_x.value = normal_x
         self._obstacle_normal_y.value = normal_y
